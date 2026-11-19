@@ -1925,7 +1925,7 @@ loose `system.json` has to be a release asset in its own right: the one inside
 the zip is what a user has after installing, and the one beside it is what the
 world reads to decide whether to install at all.
 
-    https://github.com/patcharapon-j/gluniverse-daggerheart/releases/latest/download/system.json
+    https://github.com/gluniverse-studio/gluniverse-daggerheart/releases/latest/download/system.json
 
 The bump therefore happens **before** the build, not after: `vite build` copies
 `system.json` into `dist/`, and that copy is the manifest inside the zip. A
