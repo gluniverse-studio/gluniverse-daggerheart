@@ -6536,6 +6536,22 @@ the hand and what it draws from read as one group and the slack falls after
 both. A drawer's right edge is measured onto the tiles' (`placeDrawer`, which
 the study page calls too), so it still rises over the press that opened it.
 
+**Hiding the hotbar took the macros with it, so the rail carries them.** A
+Macros drawer is the seventh tile on a player's rail and the only one on the
+GM's, because a macro is the user's and not the character's: its rows run
+whatever the rail is of, observer included. It is the hotbar one page at a
+time — `getHotbarMacros(page)`, empty slots left out, each row its absolute
+slot number, since the page is the drawer's own and a key label would name
+Foundry's. The pager in the head and the wheel over the drawer both step it,
+**clamped rather than wrapped**, because a wheel that runs off page 5 onto
+page 1 is a list jumping under the pointer. The page lives in a module
+variable and nowhere else, and the list is read on open, never put in the
+rail's options, so `shapeOf` never sees it. It re-reads on the macro hooks and
+on `renderHotbar`, and the second is not decoration: assigning a slot writes
+the User with `noHook`, so `updateUser` never hears it, while Foundry still
+re-renders its hidden hotbar for exactly that write. `stepPage`, `openPage`
+and `macroRows` are the pure half, in `bottom-hud-shape.ts`.
+
 **A Martial Artist gets a stance plate after the features**, gated as the
 sheet's Focus row is, on `subclassName`. It is three lines: the Focus gems,
 the stance you are in (a press that pins its peek, where Drop is), and a Shift

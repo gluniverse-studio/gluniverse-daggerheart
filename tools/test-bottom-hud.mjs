@@ -18,7 +18,19 @@
  */
 
 import assert from "node:assert/strict";
-import { liveOf, shapeOf, tookHit, canAct, pressBox, pressMark, sameFrame } from "../src/module/bottom-hud-shape.ts";
+import {
+  liveOf,
+  shapeOf,
+  tookHit,
+  canAct,
+  pressBox,
+  pressMark,
+  sameFrame,
+  stepPage,
+  openPage,
+  macroRows,
+  MACRO_PAGES,
+} from "../src/module/bottom-hud-shape.ts";
 import { planPlace, canPayRecall } from "../src/module/loadout.ts";
 
 let n = 0;
@@ -267,6 +279,49 @@ ok("a card dropped back where it was writes nothing", () => {
 
 ok("an unknown card is not a plan", () => {
   assert.equal(planPlace(deck(["a"], []), "zz", "vault"), null);
+});
+
+console.log("the macros drawer");
+
+ok("the pager clamps at both ends rather than wrapping", () => {
+  assert.equal(stepPage(1, -1), 1);
+  assert.equal(stepPage(MACRO_PAGES, 1), MACRO_PAGES);
+  assert.equal(stepPage(2, 1), 3);
+  assert.equal(stepPage(3, -1), 2);
+});
+
+ok("a step is one page whatever the wheel's delta", () => {
+  assert.equal(stepPage(2, 120), 3);
+  assert.equal(stepPage(2, -0.4), 1);
+  assert.equal(stepPage(2, 0), 2);
+});
+
+ok("anything that is not a page comes back as one", () => {
+  assert.equal(stepPage(NaN, 0), 1);
+  assert.equal(stepPage(9, 0), MACRO_PAGES);
+  assert.equal(stepPage(0, 0), 1);
+});
+
+ok("the drawer opens on the hotbar's page, else the first page holding a macro", () => {
+  const f = [false, false, true, false, true];
+  assert.equal(openPage(f, 5), 5);
+  assert.equal(openPage(f, 1), 3);
+  assert.equal(openPage([false, false, false, false, false], 2), 2);
+});
+
+ok("a page's rows are its filled slots, by absolute slot number", () => {
+  const slots = Array.from({ length: 10 }, (_, i) => ({ slot: 11 + i, macro: null }));
+  slots[0].macro = { id: "m1", name: "Rally", img: "icons/rally.svg" };
+  slots[9].macro = { id: "m2", name: "Dash" };
+  assert.deepEqual(macroRows(slots), [
+    { id: "m1", slot: 11, name: "Rally", img: "icons/rally.svg" },
+    { id: "m2", slot: 20, name: "Dash", img: null },
+  ]);
+});
+
+ok("an empty page, and no page at all, are no rows", () => {
+  assert.deepEqual(macroRows(Array.from({ length: 10 }, (_, i) => ({ slot: i + 1, macro: null }))), []);
+  assert.deepEqual(macroRows(undefined), []);
 });
 
 console.log(`\nbottom HUD: ${n} checks passed`);

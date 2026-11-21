@@ -77,8 +77,8 @@ the plinth, and the hand of cards. Everything else is a readout or a press insid
 Hope and the tracks, the traits over both weapons, and the class's features as rows of rules, the Hope
 feature first. Hope lights a halo behind the figure — gain one and the character warms before you have
 counted the gems. <b>Press a gem or a box</b> and it does what the sheet does: mark up to it, or give back
-the last one — the boxes are the sheet's own, wound, strain and plate. The six drawer tiles stand
-<b>right beside the hand</b>, and a drawer rises over them. Hover the portrait and press the corner frame
+the last one — the boxes are the sheet's own, wound, strain and plate. The seven drawer tiles stand
+<b>right beside the hand</b>, and a drawer rises over them; <b>macros</b> is the hotbar the rail hides, a page at a time (the GM keeps that one tile). Hover the portrait and press the corner frame
 (or right-click it) to <b>frame it</b>: drag, scroll, double-click to reset, Enter to finish. Synthetic
 sample data throughout; the portrait is the repo's art sample.</p>
 
@@ -87,7 +87,7 @@ sample data throughout; the portrait is the repo's art sample.</p>
   <label>HP <input type="range" id="hp" min="0" max="6" value="2"></label>
   <label>Stress <input type="range" id="st" min="0" max="6" value="3"></label>
   <label>Armor spent <input type="range" id="ar" min="0" max="3" value="1"></label>
-  <label>Drawer <select id="drawer"><option value="">closed</option><option value="vault">vault</option><option value="cards">cards</option><option value="bag">bag</option><option value="experiences">experiences</option><option value="rest">rest</option><option value="stances">stances</option></select></label>
+  <label>Drawer <select id="drawer"><option value="">closed</option><option value="vault">vault</option><option value="cards">cards</option><option value="bag">bag</option><option value="experiences">experiences</option><option value="rest">rest</option><option value="stances">stances</option><option value="macros">macros</option></select></label>
   <label>Peek <select id="peek"><option value="card">a card</option><option value="feat">a feature</option><option value="">nothing</option></select></label>
   <label class="tg"><input type="checkbox" id="vuln"> vulnerable</label>
   <label class="tg"><input type="checkbox" id="martial"> martial artist</label>
@@ -117,7 +117,7 @@ import { FEAR_HUD } from '/design/pool.js'
 import { setPool } from '/design/gem.js'
 import { setSeat } from '/design/seat.js'
 import { nameFit } from '/design/face-fx.js'
-import { HUD, DRAWER, DLIST, REST, PEEK, RULE_PEEK, setStrip, flinch, framePlinth, placeDrawer } from '/design/hud.js'
+import { HUD, DRAWER, DLIST, MACROS, PAGER, REST, PEEK, RULE_PEEK, setStrip, flinch, framePlinth, placeDrawer } from '/design/hud.js'
 import { setMarks } from '/design/mark.js'
 
 /* one <style> per motif, as face.html does */
@@ -169,7 +169,19 @@ const ME = [
 ]
 let who = 0
 
-const S = { hope: 4, hp: 2, st: 3, ar: 1, drawer: '', peek: 'card', vuln: false, fold: false, narrow: false, martial: false }
+const S = { hope: 4, hp: 2, st: 3, ar: 1, drawer: '', peek: 'card', vuln: false, fold: false, narrow: false, martial: false, mpage: 1 }
+
+/* The hotbar the rail hides: a page of ten, two pages filled, three empty —
+   so the pager can be walked onto a page that says so. The host reads this
+   off game.user.getHotbarMacros(page). */
+const HOTBAR = { 1: { id: 'm1', name: 'Roll for initiative of the whole party', img: A('ancestry/dwarf.webp') },
+  2: { id: 'm2', name: 'Torchlight', img: A('ancestry/drakona.webp') }, 4: { id: 'm3', name: 'Ambush music', img: null },
+  10: { id: 'm4', name: 'Loot table', img: A('ancestry/goblin.webp') }, 12: { id: 'm5', name: 'Weather', img: A('ancestry/orcs.webp') },
+  13: { id: 'm6', name: 'End the scene', img: A('ancestry/firbolg.webp') } }
+const macroPage = page => Object.entries(HOTBAR).filter(([k]) => Math.ceil(+k / 10) === page)
+  .map(([k, m]) => ({ ...m, slot: +k }))
+const macrosDrawer = () => DRAWER({ title: 'Macros', note: 'Press one to run it', head: PAGER({ page: S.mpage }),
+  body: MACROS({ rows: macroPage(S.mpage), empty: `Nothing on page ${S.mpage}.` }) })
 const P = document.getElementById('P'), G = document.getElementById('G')
 
 const stageChrome = (gm) => `
@@ -216,7 +228,8 @@ function playerHTML() {
         { key: 'stance:st1', name: 'Coiled Serpent', meta: 'Tier 1', n: 'in stance' },
         { key: 'stance:st2', name: 'Charging Bull', meta: 'Tier 1', n: '1 Focus', act: true },
         { key: 'stance:st3', name: 'Rooted Oak', meta: 'Tier 2', n: '1 Focus', act: true },
-      ] }) }) : '',
+      ] }) })
+    : S.drawer === 'macros' ? macrosDrawer() : '',
     peek: S.drawer ? '' : S.peek === 'feat' ? RULE_PEEK({ ...pf,
       actions: [{ label: 'Use', cost: `${pf.hope ?? 0} Hope`, tone: 'hope', said: 'Spend 3 Hope', short: pf.hope > S.hope ? `Needs ${pf.hope} Hope` : '' }, { label: 'Post', said: 'Show to chat' }] })
     : S.peek === 'card' ? PEEK({ face: `<div class="host" style="container-type:inline-size;width:264px">${FACE({ ...peekCard, size: 'full' })}</div>`,
@@ -240,6 +253,8 @@ function gmHTML() {
       { id: 'b2', name: 'Jagged Knife Sniper', role: 'Ranged', tier: 1, img: A('ancestry/orcs.webp'), hp: [2, 3] },
       { id: 'b3', name: 'Jagged Knife Kneebreaker', role: 'Bruiser', tier: 1, img: A('ancestry/firbolg.webp'), hp: [5, 7] },
     ] },
+    drawers: { open: S.drawer === 'macros' ? 'macros' : '' },
+    drawer: S.drawer === 'macros' ? macrosDrawer() : '',
     plinth: { name: 'Jagged Knife Lieutenant', sub: 'Leader · Tier 1', img: A('ancestry/drakona.webp'), frame: { x: 0, y: -3, scale: 1.5 }, hopeLit: 0, fold: false },
     adversary: { difficulty: 13, hp: [3, 6], st: [1, 3], thresholds: [8, 15],
       attack: { name: 'Cutlass', mod: 2, range: 'Melee', dmg: '1d8+3 phy' },
@@ -275,6 +290,7 @@ function draw(arrive) {
     hud().style.setProperty('--bh-peek-x', `${Math.round(Math.max(56, x))}px`)
   }
   placeDrawer(hud(), parseFloat(P.style.zoom) || 1)
+  placeDrawer(G.querySelector('.bhud'), parseFloat(G.style.zoom) || 1)
 }
 
 /* Live values go through the setters, never a redraw — what the host will do. */
@@ -353,6 +369,13 @@ document.addEventListener('click', e => {
   if (strip.closest('#P')) { const el = document.getElementById(k); el.value = next; el.dispatchEvent(new Event('input')); return }
   setStrip(strip, next)
 })
+/* The macros drawer's pager, and the wheel over the drawer: one page a
+   step, clamped at both ends. The page is the drawer's own. */
+const turn = d => { const n = Math.max(1, Math.min(5, S.mpage + Math.sign(d))); if (n !== S.mpage) { S.mpage = n; draw() } }
+document.addEventListener('click', e => { const pg = e.target.closest('.bh-drawer .bh-pg[data-page]'); if (pg) turn(+pg.dataset.page) })
+let wheelAt = 0
+document.addEventListener('wheel', e => { if (S.drawer !== 'macros' || !e.target.closest('.bh-drawer')) return
+  e.preventDefault(); if (e.timeStamp - wheelAt < 180 || !e.deltaY) return; wheelAt = e.timeStamp; turn(e.deltaY) }, { passive: false })
 /* The Hope feature charges for itself; short of Hope, the row flinches. */
 const ab = () => P.querySelector('.bh-feat.is-hope')
 document.addEventListener('click', e => {
@@ -364,6 +387,7 @@ document.addEventListener('click', e => {
 /* ?hope=6&peek=feat&drawer=vault&narrow=1&who=1&still — a state by URL, so a
    headless capture can take any of them without driving the controls. */
 const q = new URLSearchParams(location.search)
+if (q.has('mpage')) S.mpage = +q.get('mpage')
 for (const k of ['hope', 'hp', 'st', 'ar']) if (q.has(k)) { S[k] = +q.get(k); document.getElementById(k).value = S[k] }
 for (const k of ['peek', 'drawer']) if (q.has(k)) { S[k] = q.get(k); document.getElementById(k).value = S[k] }
 for (const k of ['vuln', 'fold', 'narrow']) if (q.has(k)) { S[k] = true; document.getElementById(k).checked = true }

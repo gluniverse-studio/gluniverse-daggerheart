@@ -314,6 +314,15 @@
         "manual": "{actor} drops out of {stance}."
       }
     },
+    "Macros": {
+      "Heading": "Macros",
+      "Note": "Press one to run it",
+      "EmptyPage": "Nothing on page {page}.",
+      "Empty": "Your hotbar is empty. Turn the bottom HUD off to drag a macro onto a slot.",
+      "Prev": "Previous page",
+      "Next": "Next page",
+      "Gone": "That macro no longer exists."
+    },
     "Plate": {
       "DealDamage": "Deal {damage}",
       "DealDamageMax": "Deal {damage}, starting at maximum",

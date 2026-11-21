@@ -843,8 +843,15 @@ declare module "*/ui/hud.js" {
   export function HAND(opts: any): string;
   export function FOES(opts: any): string;
   export function DRAWERS(opts: any): string;
-  export function DRAWER(opts: { title: string; note?: string; body: string }): string;
+  export function DRAWER(opts: { title: string; note?: string; body: string; head?: string }): string;
   export function DLIST(opts: { rows: any[]; empty?: string }): string;
+  /** One hotbar page as rows; a row is `data-row="macro:<id>"`. */
+  export function MACROS(opts: {
+    rows: { id: string; slot: number; name: string; img: string | null }[];
+    empty?: string;
+  }): string;
+  /** The macros drawer's pager, for the drawer head; presses carry `data-page="±1"`. */
+  export function PAGER(opts: { page: number; pages?: number; prev?: string; next?: string }): string;
   export function REST(): string;
   export function PEEK(opts: { face: string; actions?: any[]; rule?: boolean }): string;
   export function RULE_PEEK(opts: { name: string; from: string; text: string; actions?: any[] }): string;

@@ -494,7 +494,7 @@
 .dh .bh-foes .bh-held:not(.is-sel):hover .dh-cc{filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}
 
 /* ══ DRAWERS ══════════════════════════════════════════════════════ */
-.dh .bh-drawers{flex:none;width:72px;padding:6px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr);gap:3px}
+.dh .bh-drawers{flex:none;padding:6px;display:grid;grid-auto-flow:column;grid-template-rows:repeat(3,26px);grid-auto-columns:28px;gap:3px}
 .dh .bh-dw{position:relative;height:26px;min-height:26px;max-height:26px;display:flex;align-items:center;justify-content:center;gap:4px;
   color:var(--bh-dim);background:var(--bh-ink-2);box-shadow:inset 0 0 0 1px var(--bh-line);
   clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut-xs)),calc(100% - var(--bh-cut-xs)) 100%,0 100%);
@@ -544,6 +544,25 @@
 .dh .bh-rb:hover{background:var(--bh-ink-4)}
 .dh .bh-rb b{font:700 13px/1 var(--bh-font)}
 .dh .bh-rb span{font:500 11px/1.2 var(--bh-font);color:var(--bh-faint)}
+/* The macros: the hotbar's page, a row a slot. The number is a column of
+   its own so the names start in one place down the page; the icon is the
+   macro's own picture at the row's x-height, framed so a transparent one
+   still reads as a slot. */
+.dh .bh-mac .bh-mk{flex:none;width:16px;text-align:right;font:650 11px/1 var(--bh-font);color:var(--bh-faint);font-variant-numeric:tabular-nums}
+.dh .bh-mac .bh-mi{flex:none;display:block;width:20px;height:20px;margin:0;padding:0;border:0;object-fit:cover;
+  background:var(--bh-ink-3);box-shadow:inset 0 0 0 1px var(--bh-line)}
+.dh .bh-mac b{flex:1 1 auto}
+.dh .bh-dnone.bh-macs{min-width:252px}
+/* The pager stands at the head's right edge, on the title's line. */
+.dh .bh-pager{margin-left:auto;align-self:center;display:flex;align-items:center;gap:2px;padding-left:10px}
+.dh .bh-pager b{min-width:30px;text-align:center;font:700 12px/1 var(--bh-font);font-variant-numeric:tabular-nums}
+.dh .bh-pager b i{font-style:normal;font-weight:500;color:var(--bh-faint)}
+.dh .bh-pg{display:grid;place-items:center;width:22px;height:22px;min-height:22px;max-height:22px;
+  color:var(--bh-dim);background:var(--bh-ink-2);box-shadow:inset 0 0 0 1px var(--bh-line);transition:background .15s,color .15s}
+.dh .bh-pg .bh-ic{width:12px;height:12px}
+.dh .bh-pg:hover{background:var(--bh-ink-4);color:var(--bh-text)}
+.dh .bh-pg[aria-disabled="true"]{opacity:.35;cursor:default}
+.dh .bh-pg[aria-disabled="true"]:hover{background:var(--bh-ink-2);color:var(--bh-dim)}
 @keyframes bh-rise{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
 
 /* ══ THE PEEK ═════════════════════════════════════════════════════ */
