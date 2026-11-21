@@ -18,7 +18,7 @@
  */
 
 import assert from "node:assert/strict";
-import { liveOf, shapeOf, tookHit, canAct, pressBox, pressMark, sameFrame } from "../src/module/bottom-hud-shape.ts";
+import { liveOf, shapeOf, tookHit, canAct, pressBox, pressMark, sameFrame, downOf } from "../src/module/bottom-hud-shape.ts";
 import { planPlace, canPayRecall } from "../src/module/loadout.ts";
 
 let n = 0;
@@ -117,6 +117,37 @@ ok("the portrait's framing is a value, so placing it never rebuilds the rail", (
   const c = clone(a);
   c.plinth.frameable = false;
   assert.notEqual(shapeOf(a), shapeOf(c));
+});
+
+ok("going down and coming back are a value, so the rail is driven and never rebuilt", () => {
+  const a = player();
+  a.plinth.downText = { dying: "Death move", dead: "Dead" };
+  for (const down of ["dying", "dead"]) {
+    const b = clone(a);
+    b.plinth.down = down;
+    b.vitals.hp[0] = 6;
+    assert.equal(shapeOf(a), shapeOf(b), `${down} rebuilt the rail`);
+    assert.equal(liveOf(b).down, down);
+  }
+  assert.equal(liveOf(a).down, null);
+  const g = { ...gm(), plinth: { name: "Lieutenant", down: "dead" } };
+  assert.equal(shapeOf(g), shapeOf({ ...g, plinth: { name: "Lieutenant", down: null } }));
+  assert.equal(liveOf(g).down, "dead");
+  /* The plate's words are not a value: a rail whose words change is redrawn. */
+  const c = clone(a);
+  c.plinth.downText.dying = "Avoid Death";
+  assert.notEqual(shapeOf(a), shapeOf(c));
+});
+
+ok("down is the last Hit Point or the defeated status, and only those", () => {
+  assert.equal(downOf([5, 6], false, "player"), null);
+  assert.equal(downOf([6, 6], false, "player"), "dying", "the last Hit Point owes a death move");
+  assert.equal(downOf([2, 6], true, "player"), "dead", "the defeated status says so outright");
+  assert.equal(downOf([6, 6], true, "player"), "dead", "dead outranks dying");
+  assert.equal(downOf([0, 0], false, "player"), null, "a track with no boxes is unfilled, not gone");
+  assert.equal(downOf(undefined, false, "player"), null);
+  assert.equal(downOf([3, 3], false, "gm"), "dead", "an adversary at its last Hit Point is defeated, with no death move");
+  assert.equal(downOf([2, 3], false, "gm"), null);
 });
 
 ok("shapeOf does not mutate its input", () => {

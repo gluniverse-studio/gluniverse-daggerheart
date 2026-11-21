@@ -77,14 +77,14 @@ import {
   type Sigils,
 } from "./sheets/cards.ts";
 import { postCard } from "./sheets/post-card.ts";
-import { canAct, liveOf, pressBox, pressMark, sameFrame, shapeOf, tookHit, type Live } from "./bottom-hud-shape.ts";
+import { canAct, downOf, liveOf, pressBox, pressMark, sameFrame, shapeOf, tookHit, type Live } from "./bottom-hud-shape.ts";
 import { rich } from "./ui/card.js";
 import { FACE } from "./ui/face.js";
 import { fit, nameFit } from "./ui/face-fx.js";
 import { setPool } from "./ui/gem.js";
 import { COMPACT } from "./ui/compact.js";
 import { setSeat } from "./ui/seat.js";
-import { DLIST, DRAWER, HUD, PEEK, REST, RULE_PEEK, flinch, framePlinth, placeDrawer, setFrame, setStrip } from "./ui/hud.js";
+import { DLIST, DRAWER, HUD, PEEK, REST, RULE_PEEK, flinch, framePlinth, placeDrawer, setDown, setFrame, setStrip } from "./ui/hud.js";
 import { setMarks } from "./ui/mark.js";
 
 const TRACK = { hp: "hitPoints", st: "stress", ar: "armorSlots" } as const;
@@ -317,6 +317,10 @@ function seatOf(a: any): any {
   };
 }
 
+/** The defeated status, which the plinth's down plate says instead of a chip. */
+const defeated = (actor: any): boolean =>
+  !!actor?.statuses?.has?.((CONFIG as any).specialStatusEffects?.DEFEATED ?? "dead");
+
 function conditionsOf(actor: any): any[] {
   const effects = (CONFIG as any).statusEffects ?? [];
   return [...(actor.statuses ?? [])]
@@ -487,6 +491,11 @@ function playerModel(actor: any): Model {
       hopeLit: hopeMax ? hope / (hopeMax + scars) : 0,
       hope,
       conds: conditionsOf(actor),
+      down: downOf(pair(r.hitPoints), defeated(actor), "player"),
+      downText: {
+        dying: game.i18n.localize("DAGGERHEART.Down.Dying"),
+        dead: game.i18n.localize("DAGGERHEART.Down.Dead"),
+      },
     },
     vitals: {
       hope: [hope, hopeMax + scars, scars],
@@ -567,6 +576,8 @@ function gmModel(): Model {
       img: portraitOf(a) ?? a.img,
       hopeLit: 0,
       conds: conditionsOf(a),
+      down: downOf(pair(r.hitPoints), defeated(a), "gm"),
+      downText: { dead: game.i18n.localize("DAGGERHEART.Down.Defeated") },
     };
   }
 
@@ -684,6 +695,7 @@ function paint(arrive: boolean): void {
 
 /** Values only: the setters, and the one thing a value change also says. */
 function drive(root: HTMLElement, prev: Live, next: Live): void {
+  if ((next.down ?? null) !== (prev.down ?? null)) setDown(root, next.down ?? null);
   if (next.role === "player") {
     const gems = root.querySelector<HTMLElement>(".bh-hope .gems");
     if (gems && next.hope !== prev.hope) setPool(gems, next.hope ?? 0);

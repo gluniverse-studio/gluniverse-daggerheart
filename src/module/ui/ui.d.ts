@@ -822,6 +822,8 @@ declare module "*/ui/hud.js" {
   export function setStrip(strip: Element, marked: number): void;
   /** The figure takes the hit: a recoil and a red pass up from its foot. */
   export function flinch(plinth: Element): void;
+  /** Put the rail down (`dying` | `dead`) or bring it back: one attribute and the plinth plate's word. */
+  export function setDown(root: Element, down: "dying" | "dead" | null): void;
   /** A player's track: mark.js's MARKS in a `[data-track]` row; drive it with setMarks. */
   export function TRACK(kind: "hp" | "st" | "ar", v: [number, number]): string;
   type HudFrame = { x: number; y: number; scale: number };

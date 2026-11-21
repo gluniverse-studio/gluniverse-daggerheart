@@ -314,6 +314,11 @@
         "manual": "{actor} drops out of {stance}."
       }
     },
+    "Down": {
+      "Dying": "Death move",
+      "Dead": "Dead",
+      "Defeated": "Defeated"
+    },
     "Plate": {
       "DealDamage": "Deal {damage}",
       "DealDamageMax": "Deal {damage}, starting at maximum",

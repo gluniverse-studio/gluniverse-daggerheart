@@ -76,7 +76,13 @@ const sign = n => n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0';
    the same custom properties (`--fdx`/`--fdy` in percent of the frame,
    `--fz` the zoom), so one picture wears three crops and none of them is a
    conversion of another. `frameable` draws the press that starts framing,
-   for an owner only. */
+   for an owner only.
+
+   `down` is 'dying' (the last Hit Point is marked and a death move is owed),
+   'dead' (the defeated status), or nothing. The plate that says so is always
+   in the markup and empty until the rail wears `data-down`, so going down and
+   coming back are a value `setDown` moves and never a redraw. `downText` is
+   its two words, one per state, carried on the plate for the setter. */
 export const frameVars = (f) => f ? `--fdx:${+f.x || 0};--fdy:${+f.y || 0};--fz:${+f.scale || 1}` : '';
 export const PLINTH = (o) => `
 <section class="bh-plinth${o.cutout ? ' is-cut' : ''}" data-plinth style="--bh-hope:${(o.hopeLit ?? 0).toFixed(3)};${frameVars(o.frame)}">
@@ -90,6 +96,8 @@ export const PLINTH = (o) => `
       <img src="${esc(c.icon)}" alt=""><span>${esc(c.name)}</span></li>`).join('')}</ul>` : ''}
   ${o.hope != null ? `<span class="bh-ph" data-pool-n><b>${o.hope}</b><span class="bh-sr"> Hope</span></span>` : ''}
   <span class="bh-nameplate">
+    <strong class="bh-down" data-dying="${esc(o.downText?.dying ?? 'Death move')}" data-dead="${esc(o.downText?.dead ?? 'Dead')}">${
+      o.down ? esc(o.downText?.[o.down] ?? (o.down === 'dead' ? 'Dead' : 'Death move')) : ''}</strong>
     <b>${esc(o.name)}</b>
     <span>${o.sub ?? ''}</span>
   </span>
@@ -132,6 +140,16 @@ export function setStrip(strip, m) {
   strip.toggleAttribute('data-full', kind !== 'ar' && marked >= boxes.length - 1);
   strip.querySelector('.bh-sn b').textContent = shown;
   strip.querySelector('.bh-seg').setAttribute('aria-valuenow', shown);
+}
+
+/* Down is a state of the whole rail rather than of the plinth, because what
+   it changes is which plates are loud: the weapons, the features and the hand
+   step back, and the plate on the plinth says why. One attribute and one
+   word, so it is driven like any other value. */
+export function setDown(root, down) {
+  if (down) root.setAttribute('data-down', down); else root.removeAttribute('data-down');
+  const plate = root.querySelector('.bh-down');
+  if (plate) plate.textContent = down ? (plate.dataset[down] ?? '') : '';
 }
 
 /* Damage is felt the way Hope is: when Hit Points land, the figure takes
@@ -458,7 +476,7 @@ const EMPTY = (note = 'No adversaries on this scene') => `
 
 /* ── the whole rail ───────────────────────────────────────────────── */
 export const HUD = (o) => `
-<div class="bhud" data-role="${o.role}"${o.folded ? ' data-folded' : ''}${o.drawer ? ` data-drawer="${o.drawers?.open ?? ''}"` : ''}>
+<div class="bhud" data-role="${o.role}"${o.folded ? ' data-folded' : ''}${o.plinth?.down ? ` data-down="${o.plinth.down}"` : ''}${o.drawer ? ` data-drawer="${o.drawers?.open ?? ''}"` : ''}>
   ${o.stack?.length ? `<div class="bh-stack" role="group" aria-label="The party">${o.stack.map(s => SEAT({ size: 60, ...s })).join('')}</div>` : ''}
   <div class="bh-rail">
     ${PLINTH(o.plinth)}
