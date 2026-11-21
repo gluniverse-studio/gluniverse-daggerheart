@@ -351,6 +351,7 @@ ok("a pick pans only to a token the GM cannot see", () => {
 ok("the rail's hints are Foundry's plain-text tooltips, never a native title", () => {
   const src = readFileSync(new URL("../design/hud.js", import.meta.url), "utf8");
   assert.doesNotMatch(src, /\stitle="/, "a native title opens beside Foundry's tooltip");
+  assert.doesNotMatch(readFileSync(new URL("../design/call.js", import.meta.url), "utf8"), /\stitle="/, "the call panel and bar too");
   assert.doesNotMatch(src, /data-tooltip="|data-tooltip-html=/, "data-tooltip renders markup, and names are typed by players");
   assert.match(src, /data-tooltip-text="\$\{esc\(/, "the hint goes through esc()");
   const host = readFileSync(new URL("../src/module/bottom-hud.ts", import.meta.url), "utf8");

@@ -1,0 +1,168 @@
+/* ══════════════════════════════════════════════════════════════════
+   DH CALL — the GM calls for a roll
+
+   Three objects on the bottom rail, drawn by `call.js`: the GM's door at the
+   foot of the party stack, the panel it opens, and the bar a call puts on a
+   player's rail. All three live inside the rail's root and take its plates,
+   its hairlines, its cut and its type; nothing here declares a palette of its
+   own.
+
+   The one decision is colour, and it is a refusal. Every hue on the rail is a
+   signal that already means something — Hope gold, Fear violet, the three
+   marks, the domains — and a call is none of those. So a call is ink with the
+   paper edge, the rail's one quiet claim (the viewer's own seat wears it, and
+   so does an open drawer tile), and the trait is set large instead of loud.
+   The only colour in this file is Hope and Fear on an answer, where the words
+   beside them are literally "with Hope" and "with Fear".
+
+   Every name is `bh-call`-prefixed. It sits inside the rail's root, so the
+   rail's button reset — every button whose class contains the rail's prefix —
+   reaches these too, and each control states its own metrics after it.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── the drain ── time left, as a line that empties to the left. Started at
+   the point the clock has already reached (`--bh-call-gone`), so an element
+   re-attached by its host carries on rather than refilling. */
+.bh-call-foot{position:absolute;left:0;right:0;bottom:0;height:2px;pointer-events:none;
+  background:var(--bh-paper);opacity:.7;transform-origin:0 50%;
+  animation:bh-call-drain linear var(--bh-call-life,180000ms) both;
+  animation-delay:calc(var(--bh-call-gone,0ms) * -1)}
+@keyframes bh-call-drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+
+/* The trait, at the size the one fact a player must act on deserves. */
+.bh-call-big{font:750 21px/1 var(--bh-font);letter-spacing:-.01em;font-stretch:var(--w-figures,92%)}
+
+/* ══ THE DOOR ═════════════════════════════════════════════════════
+   At the foot of the GM's party stack, across both columns: the call is
+   about the party, so it stands with them. */
+.bh-call-press{position:relative;grid-column:1/-1;display:flex;align-items:center;gap:8px;
+  height:30px;min-height:30px;max-height:30px;padding:0 12px 0 10px;
+  font:650 12px/1 var(--bh-font);color:var(--bh-dim);
+  background:var(--bh-ink-1);
+  box-shadow:inset 0 1px 0 var(--bh-line-2),inset 0 0 0 1px var(--bh-line);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut-sm)),calc(100% - var(--bh-cut-sm)) 100%,0 100%);
+  transition:background .15s,color .15s}
+.bh-call-press .bh-ic{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.bh-call-press b{font:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bh-call-press span{margin-left:auto;font:700 12px/1 var(--bh-font);font-variant-numeric:tabular-nums;color:var(--bh-text)}
+.bh-call-press:hover{background:var(--bh-ink-4);color:var(--bh-text)}
+.bh-call-press[aria-expanded="true"]{background:var(--bh-ink-4);color:var(--bh-text);
+  box-shadow:inset 0 -2px 0 var(--bh-paper),inset 0 0 0 1px var(--bh-line-2)}
+.bh-call-press.is-out{color:var(--bh-text);box-shadow:inset 2px 0 0 var(--bh-paper),inset 0 0 0 1px var(--bh-line-2)}
+
+/* ══ THE PANEL ════════════════════════════════════════════════════
+   A plate rising above the rail beside the party stack, at the height the
+   drawers rise to, so it clears the adversaries standing on the rail. */
+.bh-call-panel{position:absolute;left:358px;bottom:calc(var(--bh-h) + 60px);z-index:40;
+  width:max-content;min-width:340px;max-width:620px;
+  background:var(--bh-ink-1);
+  box-shadow:inset 0 1px 0 var(--bh-line-2),inset 0 0 0 1px var(--bh-line);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut)),calc(100% - var(--bh-cut)) 100%,0 100%);
+  transform-origin:0 100%;
+  animation:bh-call-rise .26s var(--bh-ease)}
+.bh-call-panel.is-steady{animation:none}
+.bh-call-panel > header{display:flex;align-items:baseline;gap:10px;padding:11px 14px 9px;box-shadow:inset 0 -1px 0 var(--bh-line)}
+.bh-call-panel > header b{font:700 15px/1.2 var(--bh-font)}
+.bh-call-panel > header span{font:500 11px/1.2 var(--bh-font);color:var(--bh-faint)}
+@keyframes bh-call-rise{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+
+/* The call that is out: its trait large, then one line per called character. */
+.bh-call-out{position:relative;margin:8px 14px 0;padding:8px 10px 10px;background:var(--bh-ink-2);
+  box-shadow:inset 2px 0 0 var(--bh-paper),inset 0 0 0 1px var(--bh-line)}
+.bh-call-head{display:flex;align-items:baseline;gap:10px}
+.bh-call-head span{font:500 11px/1.2 var(--bh-font);color:var(--bh-faint);white-space:nowrap}
+.bh-call-head em{margin-left:auto;font:700 13px/1 var(--bh-font);font-style:normal;font-variant-numeric:tabular-nums}
+.bh-call-end{display:block;align-self:center;height:24px;min-height:24px;max-height:24px;padding:0 10px;
+  font:650 11px/24px var(--bh-font);color:var(--bh-dim);
+  background:var(--bh-ink-3);box-shadow:inset 0 0 0 1px var(--bh-line);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut-xs)),calc(100% - var(--bh-cut-xs)) 100%,0 100%);
+  transition:background .15s,color .15s}
+.bh-call-end:hover{background:var(--bh-ink-4);color:var(--bh-text)}
+.bh-call-list{margin:7px 0 0;padding:0;list-style:none;display:grid;gap:2px}
+.bh-call-list li{display:flex;align-items:baseline;gap:10px;height:22px;padding:0 8px;align-items:center;background:var(--bh-ink-1)}
+.bh-call-list b{font:600 12px/1 var(--bh-font);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bh-call-list span{font:500 11px/1 var(--bh-font);color:var(--bh-faint);white-space:nowrap}
+.bh-call-list em{margin-left:auto;font:750 15px/1 var(--bh-font);font-style:normal;font-variant-numeric:tabular-nums}
+.bh-call-list li[data-state="wait"] span{color:var(--bh-dim)}
+.bh-call-list li[data-state="away"]{opacity:.55}
+.bh-call-list li[data-state="rolling"] span{color:var(--bh-text);animation:bh-call-wait 1s ease-in-out infinite alternate}
+.bh-call-list span[data-out="hope"]{color:var(--hope-tx,#e0b647)}
+.bh-call-list span[data-out="fear"]{color:var(--fear-tx,#a688ea)}
+.bh-call-list span[data-out="crit"]{color:var(--bh-paper);font-weight:700}
+/* Against a Difficulty, a failure recedes rather than turning a colour the
+   rail has already given to something else. */
+.bh-call-list li[data-verdict="failure"] em{color:var(--bh-faint)}
+@keyframes bh-call-wait{to{opacity:.45}}
+
+/* How it is posted, and against what. */
+.bh-call-how{display:flex;align-items:center;gap:8px;padding:8px 14px 0}
+.bh-call-seg{display:flex;gap:2px}
+.bh-call-opt{display:block;height:26px;min-height:26px;max-height:26px;padding:0 10px;
+  font:650 11px/26px var(--bh-font);color:var(--bh-dim);white-space:nowrap;
+  background:var(--bh-ink-3);box-shadow:inset 0 0 0 1px var(--bh-line);transition:background .15s,color .15s}
+.bh-call-opt:hover{background:var(--bh-ink-4);color:var(--bh-text)}
+.bh-call-opt.on{background:var(--bh-ink-5);color:var(--bh-text);box-shadow:inset 0 -2px 0 var(--bh-paper),inset 0 0 0 1px var(--bh-line-2)}
+.bh-call-dc{display:flex;align-items:center;gap:6px;margin-left:6px;font:500 11px/1 var(--bh-font);color:var(--bh-faint)}
+/* The one text input on the rail. Foundry's elements layer gives every input a
+   height, a border, a ground and a radius; reset once here, as the compendium
+   browser resets its search field. */
+.bh-call-dc input{all:unset;box-sizing:border-box;width:38px;height:26px;min-height:26px;max-height:26px;padding:0 6px;
+  font:700 13px/26px var(--bh-font);font-variant-numeric:tabular-nums;text-align:center;color:var(--bh-text);
+  background:var(--bh-ink-0);box-shadow:inset 0 0 0 1px var(--bh-line-2);cursor:text}
+.bh-call-dc input:focus-visible{box-shadow:inset 0 0 0 1px var(--bh-paper)}
+.bh-call-dc input::placeholder{color:var(--bh-faint)}
+
+/* The grid: a row per trait, a column per character. */
+.bh-call-grid{display:grid;gap:2px;padding:8px 14px 12px}
+.bh-call-row{display:grid;grid-template-columns:92px repeat(var(--n,1),minmax(54px,1fr));gap:2px;align-items:stretch}
+.bh-call-row > span{display:flex;align-items:center;justify-content:center;min-width:0}
+.bh-call-row > span:first-child{justify-content:flex-start}
+.bh-call-cell{height:22px;font:650 13px/1 var(--bh-font);font-variant-numeric:tabular-nums;color:var(--bh-dim);background:var(--bh-ink-2)}
+.bh-call-cell.is-best{color:var(--bh-text);box-shadow:inset 0 -2px 0 var(--bh-paper)}
+.bh-call-cell.is-none{color:var(--bh-faint)}
+.bh-call-key,.bh-call-who{display:block;width:100%;height:22px;min-height:22px;max-height:22px;padding:0 9px;
+  font:650 12px/22px var(--bh-font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:var(--bh-ink-3);box-shadow:inset 0 0 0 1px var(--bh-line);transition:background .15s,color .15s}
+.bh-call-key{color:var(--bh-text)}
+.bh-call-key:hover{background:var(--bh-ink-5);box-shadow:inset 2px 0 0 var(--bh-paper),inset 0 0 0 1px var(--bh-line-2)}
+.bh-call-key[aria-disabled="true"]{opacity:.5;cursor:default}
+.bh-call-who{text-align:center;color:var(--bh-faint)}
+.bh-call-who:hover{background:var(--bh-ink-4);color:var(--bh-text)}
+.bh-call-who.on{color:var(--bh-text);background:var(--bh-ink-5);box-shadow:inset 0 -2px 0 var(--bh-paper),inset 0 0 0 1px var(--bh-line-2)}
+
+/* ══ THE BAR ══════════════════════════════════════════════════════
+   Above the player's vitals, standing on the rail the way a drawer rises
+   off its tiles. 48px, one per called character, the newest nearest. */
+.bh-call-bars{position:absolute;left:154px;bottom:calc(var(--bh-h) + 8px);z-index:35;
+  display:flex;flex-direction:column-reverse;gap:6px;width:440px;pointer-events:auto}
+.bh-call-bar{position:relative;display:flex;align-items:center;gap:12px;height:48px;padding:0 8px 0 14px;
+  background:var(--bh-ink-1);
+  box-shadow:inset 0 2px 0 var(--bh-paper),inset 0 0 0 1px var(--bh-line-2),0 10px 24px rgba(0,0,0,.45);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut)),calc(100% - var(--bh-cut)) 100%,0 100%)}
+.bh-call-bar.is-new{animation:bh-call-land .42s var(--bh-ease) both}
+@keyframes bh-call-land{0%{opacity:0;translate:0 12px}60%{opacity:1}100%{opacity:1;translate:0 0}}
+.bh-call-says{display:grid;gap:4px;min-width:0;flex:1 1 auto}
+.bh-call-says span{font:500 11px/1 var(--bh-font);color:var(--bh-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bh-call-says .bh-call-big{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The adversary panel's diamond, at the bar's height. */
+.bh-call-diff{flex:none;display:grid;place-items:center;width:38px;height:38px;position:relative}
+.bh-call-diff::before{content:"";position:absolute;inset:6px;rotate:45deg;background:var(--bh-ink-3);
+  box-shadow:inset 0 0 0 1px var(--bh-line-2),inset 0 0 10px rgba(0,0,0,.55)}
+.bh-call-diff span{position:relative;font:750 15px/1 var(--bh-font);font-variant-numeric:tabular-nums}
+.bh-call-roll{display:block;flex:none;height:32px;min-height:32px;max-height:32px;padding:0 18px;
+  font:750 13px/32px var(--bh-font);letter-spacing:.02em;color:var(--bh-ink-0);background:var(--bh-paper);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut-sm)),calc(100% - var(--bh-cut-sm)) 100%,0 100%);
+  transition:filter .15s}
+.bh-call-roll:hover{filter:brightness(1.12)}
+.bh-call-cant{flex:none;font:600 11px/1 var(--bh-font);color:var(--bh-faint)}
+.bh-call-x{flex:none;display:grid;place-items:center;width:26px;height:26px;min-height:26px;max-height:26px;
+  font:500 18px/1 var(--bh-font);color:var(--bh-faint);transition:color .15s}
+.bh-call-x:hover{color:var(--bh-text)}
+
+/* With no rail to stand on — the HUD switched off — the bars stand over the
+   centre of the screen's foot, clear of the macro hotbar. */
+.bhud.bh-call-solo .bh-call-bars{left:50%;translate:-50% 0;bottom:86px}
+
+@media (prefers-reduced-motion:reduce){
+  .bh-call-bar.is-new,.bh-call-panel,.bh-call-list li[data-state="rolling"] span{animation:none}
+}

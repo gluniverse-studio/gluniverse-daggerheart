@@ -377,6 +377,10 @@
       "ComboFocus": "Combo strike · {die} · spend a Focus",
       "ComboTerm": "combo {n}{die}"
     },
+    "Call": {
+      "Nobody": "Nobody in the party to call for a roll.",
+      "NobodyHere": "None of the called characters has a player connected to answer."
+    },
     "Spotlight": {
       "KeyPlayer": "Player spotlight",
       "KeyPlayerHint": "Puts the spotlight on the players. Press again to clear it.",

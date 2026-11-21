@@ -90,6 +90,13 @@ export interface DualityOptions {
    * dice, not to go looking for documents.
    */
   note?: Note;
+  /**
+   * Posted to the roller and the GMs only — a roll the GM called for as
+   * private (`roll-call.ts`). Nothing else posts a duality plate this way.
+   */
+  whisper?: boolean;
+  /** The id of the GM's call this roll answers, written to the message's flags. */
+  call?: string;
 }
 
 export interface DualityOutcome {
@@ -181,7 +188,11 @@ export async function rollDuality(opts: DualityOptions): Promise<DualityOutcome>
     plate,
     next: opts.next,
     nextAct: opts.nextAct,
-    extra: opts.weaponId ? { weaponId: opts.weaponId } : undefined,
+    extra:
+      opts.weaponId || opts.call
+        ? { ...(opts.weaponId ? { weaponId: opts.weaponId } : {}), ...(opts.call ? { call: opts.call } : {}) }
+        : undefined,
+    whisper: opts.whisper,
   });
 
   return { plate, roll, message };

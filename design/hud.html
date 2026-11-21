@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/design/pool.css">
 <link rel="stylesheet" href="/design/seat.css">
 <link rel="stylesheet" href="/design/hud.css">
+<link rel="stylesheet" href="/design/call.css">
 <style>
 /* ── studio furniture: none of this ships ── */
 body{padding-bottom:60px}
@@ -96,6 +97,7 @@ sample data throughout; the portrait is the repo's art sample.</p>
   <label class="tg"><input type="checkbox" id="vuln"> vulnerable</label>
   <label class="tg"><input type="checkbox" id="martial"> martial artist</label>
   <label class="tg"><input type="checkbox" id="fold"> folded</label>
+  <label>Call <select id="call"><option value="hidden">GM only, Difficulty hidden</option><option value="shown">open, Difficulty shown</option><option value="">none</option></select></label>
   <label class="tg"><input type="checkbox" id="narrow"> 1088px free</label>
   <button class="btn" id="swap">change character</button>
   <button class="btn" id="arrive">replay arrival</button>
@@ -107,7 +109,11 @@ sample data throughout; the portrait is the repo's art sample.</p>
 <b>Difficulty</b> in the family's diamond, then the tracks the GM marks, then every move as a chip — the one
 that spends Fear wears violet and nothing else does. The adversaries in play are <b>a hand of compact
 cards</b>, the same object as a player's loadout, each with its Hit Points along the top edge; the one on the
-plinth is lifted. The party stands where it does on a player's rail, above the plinth, as ringed seats.</p>
+plinth is lifted. The party stands where it does on a player's rail, above the plinth, as ringed seats.
+<b>Call for a roll</b> is the press at the foot of the party: it opens the panel (how the roll is posted, the
+Difficulty and whether the table sees it, then a grid of every character's numbers whose row heads send), and
+while a call is out the panel says who has answered and what they rolled. The player's rail above shows the bar
+that call puts there.</p>
 <div class="stagewrap"><div class="stage" id="G"></div></div>
 
 </div>
@@ -123,6 +129,7 @@ import { setSeat } from '/design/seat.js'
 import { nameFit } from '/design/face-fx.js'
 import { HUD, DRAWER, DLIST, MACROS, PAGER, REST, PEEK, RULE_PEEK, setStrip, flinch, framePlinth, placeDrawer, setDown } from '/design/hud.js'
 import { setMarks } from '/design/mark.js'
+import { CALL_PRESS, CALL_PANEL, CALL_BARS } from '/design/call.js'
 
 /* one <style> per motif, as face.html does */
 const seen = new Set()
@@ -173,7 +180,7 @@ const ME = [
 ]
 let who = 0
 
-const S = { hope: 4, hp: 2, st: 3, ar: 1, drawer: '', peek: 'card', vuln: false, fold: false, narrow: false, martial: false, mpage: 1, down: '', gmdown: false }
+const S = { hope: 4, hp: 2, st: 3, ar: 1, drawer: '', peek: 'card', vuln: false, fold: false, narrow: false, martial: false, mpage: 1, down: '', gmdown: false, call: 'hidden' }
 
 /* The hotbar the rail hides: a page of ten, two pages filled, three empty —
    so the pager can be walked onto a page that says so. The host reads this
@@ -296,6 +303,36 @@ function draw(arrive) {
   }
   placeDrawer(hud(), parseFloat(P.style.zoom) || 1)
   placeDrawer(G.querySelector('.bhud'), parseFloat(G.style.zoom) || 1)
+  calls(arrive)
+}
+
+/* Calling for a roll (call.js): the GM's door at the foot of the stack with
+   its panel open over a call that is out, and the bar that call put on the
+   player's rail. The host rebuilds these from state after every rail redraw;
+   so does the study. */
+function calls(arrive) {
+  if (!S.call) return
+  const shown = S.call === 'shown', mods = (a, s, f, i, p, k, sp) => ({ agility: a, strength: s, finesse: f, instinct: i, presence: p, knowledge: k, spellcast: sp })
+  const members = [
+    { id: 'bex', name: 'Bex Varro', mods: mods(2, -1, 1, 0, 1, 0, null) },
+    { id: 'orrin', name: 'Orrin', mods: mods(0, 2, -1, 1, 0, 1, null) },
+    { id: 'ysolde', name: 'Ysolde', mods: mods(1, 0, 2, -1, 1, 0, 0) },
+    { id: 'thane', name: 'Thane', mods: mods(-1, 1, 0, 2, 0, 1, 2) },
+  ]
+  const rows = ['agility', 'strength', 'finesse', 'instinct', 'presence', 'knowledge', 'spellcast'].map(key => {
+    const v = members.map(m => m.mods[key]).filter(x => x != null), top = Math.max(...v), flat = v.every(x => x === top)
+    return { key, label: key[0].toUpperCase() + key.slice(1), cells: members.map(m => ({ id: m.id, mod: m.mods[key], best: !flat && m.mods[key] === top })) } })
+  const out = { label: 'Instinct', mode: shown ? 'public' : 'gm', dc: 14, shown, left: 128000, life: 180000, n: 3, of: 4, targets: [
+    { id: 'bex', name: 'Bex Varro', state: 'wait' },
+    { id: 'orrin', name: 'Orrin', state: 'in', total: 17, out: 'hope', verdict: 'success' },
+    { id: 'ysolde', name: 'Ysolde', state: 'in', total: 11, out: 'fear', verdict: 'failure' },
+    { id: 'thane', name: 'Thane', state: 'rolling' },
+  ] }
+  const g = G.querySelector('.bhud')
+  g.querySelector('.bh-stack')?.insertAdjacentHTML('beforeend', CALL_PRESS({ out, open: true }))
+  g.insertAdjacentHTML('beforeend', CALL_PANEL({ grid: { members, rows }, compose: { who: [], mode: out.mode, dc: '14', showDc: shown }, out }))
+  hud().insertAdjacentHTML('beforeend', CALL_BARS([{ actorId: 'bex', name: ME[who].name, label: 'Instinct', key: 'instinct', trait: 'instinct',
+    mode: out.mode, ...(shown ? { dc: 14 } : {}), left: 128000, life: 180000, fresh: !!arrive }]))
 }
 
 /* Live values go through the setters, never a redraw — what the host will do. */
@@ -334,6 +371,7 @@ const downNow = () => S.down === 'dead' ? 'dead' : S.down === 'dying' || S.hp >=
 on('down', e => { S.down = e.target.value; setDown(hud(), downNow()) })
 on('hp', () => setDown(hud(), downNow()))
 on('gmdown', e => { S.gmdown = e.target.checked; setDown(G.querySelector('.bhud'), S.gmdown ? 'dead' : null) })
+on('call', e => { S.call = e.target.value; draw() })
 const setFold = v => { S.fold = v; document.getElementById('fold').checked = v
   hud().toggleAttribute('data-folded', v); hud().querySelector('.bh-fold')?.setAttribute('aria-expanded', String(!v)) }
 on('fold', e => setFold(e.target.checked))
@@ -403,6 +441,8 @@ if (q.has('mpage')) S.mpage = +q.get('mpage')
 for (const k of ['hope', 'hp', 'st', 'ar']) if (q.has(k)) { S[k] = +q.get(k); document.getElementById(k).value = S[k] }
 for (const k of ['peek', 'drawer', 'down']) if (q.has(k)) { S[k] = q.get(k); document.getElementById(k).value = S[k] }
 for (const k of ['vuln', 'fold', 'narrow', 'gmdown']) if (q.has(k)) { S[k] = true; document.getElementById(k).checked = true }
+for (const k of ['peek', 'drawer', 'call']) if (q.has(k)) { S[k] = q.get(k); document.getElementById(k).value = S[k] }
+for (const k of ['vuln', 'fold', 'narrow']) if (q.has(k)) { S[k] = true; document.getElementById(k).checked = true }
 if (q.has('who')) who = +q.get('who')
 if (q.has('still')) document.documentElement.classList.add('still')
 if (q.has('full')) document.querySelectorAll('.wrap').forEach(w => w.style.maxWidth = '1560px')
