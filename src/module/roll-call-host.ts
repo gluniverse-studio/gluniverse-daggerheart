@@ -286,14 +286,19 @@ function readAnswer(message: any): { total?: number; out?: "hope" | "fear" | "cr
 
 /* The card holds a reroll's result until its die lands, and so does the
    panel: the same wait `onMessage` takes, then the message as it stands. */
+const rerolls = new Map<string, number>();
 async function onReroll(message: any): Promise<void> {
   if (!game.user?.isGM || !out) return;
   const call = out;
   const hit = [...call.answered].find(([, a]) => a.msg === message?.id && a.total != null);
   if (!hit) return;
+  /* Two rerolls in flight: only the latest may publish, after its own dice. */
+  const seq = (rerolls.get(message.id) ?? 0) + 1;
+  rerolls.set(message.id, seq);
   await new Promise((done) => setTimeout(done, 80));
   const dice = waitFor3dDice(message.id);
   if (dice) await dice;
+  if (rerolls.get(message.id) !== seq) return;
   const a = call.answered.get(hit[0]);
   if (out !== call || !a || a.msg !== message.id) return;
   call.answered.set(hit[0], { ...a, ...readAnswer((game as any).messages?.get(message.id) ?? message) });
