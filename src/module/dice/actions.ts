@@ -34,6 +34,9 @@ interface Common {
    */
   hopeDie?: string;
   fearDie?: string;
+  /** Roller and GMs only, and the call it answers — see `DualityOptions`. */
+  whisper?: boolean;
+  call?: string;
 }
 
 /** Experiences cost a Hope, so they are drawn in the currency that paid. */
@@ -91,6 +94,8 @@ export async function rollTrait(actor: any, trait: Trait, opts: Common & { react
     fearDie: opts.fearDie,
     dc: opts.dc ?? null,
     reaction: opts.reaction,
+    whisper: opts.whisper,
+    call: opts.call,
   });
 }
 

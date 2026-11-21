@@ -31,6 +31,24 @@ export interface SeatLive {
   hope?: Pair | null;
 }
 
+/** `dying` owes a death move; `dead` is past one, or an adversary defeated. */
+export type Down = "dying" | "dead" | null;
+
+/**
+ * Is the rail's subject down?
+ *
+ * The defeated status says so outright. Otherwise a full Hit Point track does:
+ * a character marking their last Hit Point must make a death move, so they are
+ * `dying` until it is made or the track is cleared, and an adversary marking
+ * its last is simply defeated, so it is `dead`. A track with no maximum is a
+ * creature nothing has filled in yet, not one already gone.
+ */
+export function downOf(hp: Pair | undefined, defeated: boolean, role: "player" | "gm"): Down {
+  if (defeated) return "dead";
+  if (!hp || !(hp[1] > 0) || hp[0] < hp[1]) return null;
+  return role === "gm" ? "dead" : "dying";
+}
+
 /** Every number on the rail that a setter moves rather than a redraw. */
 export interface Live {
   role: "player" | "gm";
@@ -45,6 +63,9 @@ export interface Live {
   /** The plinth's framing, `system.portrait.hud`: a value, so placing the
       picture never rebuilds the rail it is placed in. */
   frame?: { x: number; y: number; scale: number };
+  /** Whether the rail's subject is down (`downOf`): a value, because going
+      down and coming back are one attribute and one word on the plinth. */
+  down?: Down;
   /** The party, by actor id. */
   seats: Record<string, SeatLive>;
   /** Each foe card's Hit Points, by token id. */
@@ -63,7 +84,7 @@ export function liveOf(o: any): Live {
   const foes: Record<string, Pair> = {};
   for (const f of o?.foes?.foes ?? []) if (f?.id) foes[f.id] = live(f.hp) as Pair;
   if (o?.role === "gm") {
-    return { role: "gm", hp: live(o.adversary?.hp), st: live(o.adversary?.st), seats, foes };
+    return { role: "gm", hp: live(o.adversary?.hp), st: live(o.adversary?.st), down: o.plinth?.down ?? null, seats, foes };
   }
   return {
     role: "player",
@@ -74,6 +95,7 @@ export function liveOf(o: any): Live {
     ar: live(o?.vitals?.ar),
     focus: live(o?.stance?.focus),
     frame: o?.plinth?.frame ? { ...o.plinth.frame } : undefined,
+    down: o?.plinth?.down ?? null,
     seats,
     foes,
   };
@@ -100,6 +122,9 @@ export function shapeOf(o: any): string {
     delete c.plinth.hopeLit;
     delete c.plinth.hope;
     delete c.plinth.frame;
+    /* Down is the rail's attribute and the plinth plate's word, both of which
+       `setDown` writes; its two words (`downText`) are shape. */
+    delete c.plinth.down;
   }
   /* Which features the purse can pay for is a reading of Hope, not a shape:
      the setter dims and lights them from their own `data-hope`. */
@@ -154,6 +179,47 @@ export function pressMark(i: number, marked: number, max: number): number {
   return Math.max(0, Math.min(max, i + 1 === marked ? i : i + 1));
 }
 
+/**
+ * What an Escape puts away, or null when it is not the rail's to take.
+ *
+ * Foundry's dismiss binding answers Escape by releasing the controlled token,
+ * and a GM playing a PC's token is on that PC's rail *because* of the token —
+ * so a key that closed a peek and then reached Foundry would also swap the
+ * rail out from under the pointer. Non-null means the host eats the key. Null
+ * means it goes on untouched: nothing of the rail's was open, or it was typed
+ * into somebody else's field, where Escape belongs to the field.
+ */
+export function escapeCloses(
+  key: string,
+  open: { peek: boolean; drawer: boolean },
+  foreignField: boolean,
+): "peek" | "drawer" | null {
+  if (key !== "Escape" || foreignField) return null;
+  if (open.peek) return "peek";
+  if (open.drawer) return "drawer";
+  return null;
+}
+
+export interface ViewBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/**
+ * Is a token's centre, in client pixels, somewhere the GM cannot see it? The
+ * view is `#ui-middle`'s box — the board between the side columns — and the
+ * rail's own top stands in for its bottom, because a token under the rail is
+ * as hidden as one past the edge. A point nobody could compute is not off
+ * screen: panning on a guess moves the board for nothing.
+ */
+export function offScreen(at: { x: number; y: number } | null | undefined, view: ViewBox, railTop?: number | null): boolean {
+  if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) return false;
+  const bottom = railTop != null && Number.isFinite(railTop) ? Math.min(railTop, view.bottom) : view.bottom;
+  return at.x < view.left || at.x > view.right || at.y < view.top || at.y > bottom;
+}
+
 /** Two frames are the same crop. */
 export const sameFrame = (a?: { x: number; y: number; scale: number }, b?: { x: number; y: number; scale: number }): boolean =>
   (a?.x ?? 0) === (b?.x ?? 0) && (a?.y ?? 0) === (b?.y ?? 0) && (a?.scale ?? 1) === (b?.scale ?? 1);
@@ -177,4 +243,55 @@ export function pressBox(kind: "hp" | "st" | "ar", i: number, marked: number, ma
         ? i
         : i + 1;
   return Math.max(0, Math.min(max, next));
+}
+
+/* ── the macros drawer ─────────────────────────────────────────────── */
+
+/** Foundry's hotbar: five pages of ten. */
+export const MACRO_PAGES = 5;
+
+/**
+ * The page a step lands on. Clamped rather than wrapped, which is where this
+ * parts from Foundry's own pager: the wheel steps it too, and a wheel that
+ * runs off page 5 onto page 1 is a list that jumps back under the pointer.
+ * Anything that is not a page — a stale number, NaN — comes back as one.
+ */
+export function stepPage(page: number, d: number, pages = MACRO_PAGES): number {
+  const p = Number.isFinite(page) ? Math.round(page) : 1;
+  return Math.max(1, Math.min(pages, p + Math.sign(d || 0)));
+}
+
+/**
+ * The page the drawer opens on: the one the hotbar was last on when it holds
+ * anything, else the first page that does, else the hotbar's — so an empty
+ * hotbar says so on the page it was already on.
+ */
+export function openPage(filled: boolean[], preferred: number, pages = MACRO_PAGES): number {
+  const p = stepPage(preferred, 0, pages);
+  if (filled[p - 1]) return p;
+  const first = filled.findIndex(Boolean);
+  return first >= 0 && first < pages ? first + 1 : p;
+}
+
+export interface MacroRow {
+  id: string;
+  slot: number;
+  name: string;
+  img: string | null;
+}
+
+/**
+ * One page of `user.getHotbarMacros(page)` — ten `{slot, macro}` — as the
+ * drawer's rows. An empty slot is left out, and so is one whose macro has
+ * gone: the hotbar keeps the id after the Macro is deleted, and `get`
+ * answers it with null.
+ */
+export function macroRows(slots: any[] | null | undefined): MacroRow[] {
+  const rows: MacroRow[] = [];
+  for (const s of slots ?? []) {
+    const m = s?.macro;
+    if (!m?.id) continue;
+    rows.push({ id: String(m.id), slot: Number(s.slot), name: String(m.name ?? ""), img: m.img ? String(m.img) : null });
+  }
+  return rows;
 }

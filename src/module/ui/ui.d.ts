@@ -822,6 +822,8 @@ declare module "*/ui/hud.js" {
   export function setStrip(strip: Element, marked: number): void;
   /** The figure takes the hit: a recoil and a red pass up from its foot. */
   export function flinch(plinth: Element): void;
+  /** Put the rail down (`dying` | `dead`) or bring it back: one attribute and the plinth plate's word. */
+  export function setDown(root: Element, down: "dying" | "dead" | null): void;
   /** A player's track: mark.js's MARKS in a `[data-track]` row; drive it with setMarks. */
   export function TRACK(kind: "hp" | "st" | "ar", v: [number, number]): string;
   type HudFrame = { x: number; y: number; scale: number };
@@ -843,8 +845,15 @@ declare module "*/ui/hud.js" {
   export function HAND(opts: any): string;
   export function FOES(opts: any): string;
   export function DRAWERS(opts: any): string;
-  export function DRAWER(opts: { title: string; note?: string; body: string }): string;
+  export function DRAWER(opts: { title: string; note?: string; body: string; head?: string }): string;
   export function DLIST(opts: { rows: any[]; empty?: string }): string;
+  /** One hotbar page as rows; a row is `data-row="macro:<id>"`. */
+  export function MACROS(opts: {
+    rows: { id: string; slot: number; name: string; img: string | null }[];
+    empty?: string;
+  }): string;
+  /** The macros drawer's pager, for the drawer head; presses carry `data-page="±1"`. */
+  export function PAGER(opts: { page: number; pages?: number; prev?: string; next?: string }): string;
   export function REST(): string;
   export function PEEK(opts: { face: string; actions?: any[]; rule?: boolean }): string;
   export function RULE_PEEK(opts: { name: string; from: string; text: string; actions?: any[] }): string;

@@ -314,6 +314,20 @@
         "manual": "{actor} drops out of {stance}."
       }
     },
+    "Macros": {
+      "Heading": "Macros",
+      "Note": "Press one to run it",
+      "EmptyPage": "Nothing on page {page}.",
+      "Empty": "Your hotbar is empty. Turn the bottom HUD off to drag a macro onto a slot.",
+      "Prev": "Previous page",
+      "Next": "Next page",
+      "Gone": "That macro no longer exists."
+    },
+    "Down": {
+      "Dying": "Death move",
+      "Dead": "Dead",
+      "Defeated": "Defeated"
+    },
     "Plate": {
       "DealDamage": "Deal {damage}",
       "DealDamageMax": "Deal {damage}, starting at maximum",
@@ -362,6 +376,10 @@
       "ComboStress": "Combo strike · {die} · mark a Stress",
       "ComboFocus": "Combo strike · {die} · spend a Focus",
       "ComboTerm": "combo {n}{die}"
+    },
+    "Call": {
+      "Nobody": "Nobody in the party to call for a roll.",
+      "NobodyHere": "None of the called characters has a player connected to answer."
     },
     "Spotlight": {
       "KeyPlayer": "Player spotlight",

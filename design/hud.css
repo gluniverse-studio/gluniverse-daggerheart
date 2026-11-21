@@ -210,6 +210,38 @@
   box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bh-red) 70%,transparent)}
 .bh-cond[data-tone="danger"] span{position:static;width:auto;height:auto;overflow:visible;clip:auto;color:#ffd6d9}
 
+/* DOWN. Marking the last Hit Point owes a death move, and the defeated
+   status is the end of one; either way the character acts on nothing in its
+   weapons, its features or its hand, so those step back and the plate above
+   the name is the loudest word on the rail. Hope, the tracks, the traits and
+   the drawers stay lit: a Hit Point cleared is how a character comes back,
+   and two of the three death moves turn on the Hope and Fear dice. Dimmed, not disabled — a
+   plate comes back whole under the pointer, because a GM may rule
+   otherwise and a press nobody can see is worse than one that looks quiet.
+   A state, not an event: one easing in, none out, nothing idle, and the
+   motion dial or the OS setting takes even that one away. The GM's panel
+   wears it for an adversary at its last Hit Point: the moves step back, the
+   strips stay pressable. */
+.bh-down{display:none;justify-self:start;height:18px;padding:0 6px;align-items:center;
+  font:700 11px/1 var(--bh-font);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;
+  color:#ffd6d9;background:color-mix(in srgb,var(--bh-red) 16%,var(--bh-ink-0));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bh-red) 55%,transparent);
+  clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut-xs)),calc(100% - var(--bh-cut-xs)) 100%,0 100%)}
+.bhud[data-down] .bh-down{display:flex}
+.bhud[data-down="dead"] .bh-down{color:var(--bh-dim);background:var(--bh-ink-0);box-shadow:inset 0 0 0 1px var(--bh-line-2)}
+/* The plate is a row of the nameplate, so the conditions rise by its height. */
+.bhud[data-down] .bh-conds{bottom:73px}
+.bhud[data-down] :is(.bh-weapons,.bh-feats,.bh-moves){opacity:.38;
+  transition:opacity calc(.24s * var(--vtt-motion-speed,1)) ease-out}
+/* The hand darkens rather than fades: its cards overlap, and a translucent
+   card shows the one behind it through its own painting. */
+.bhud[data-down] .bh-hand:not(.bh-foes) .bh-held > .bh-cc1{filter:brightness(.4) saturate(.55);
+  transition:filter calc(.24s * var(--vtt-motion-speed,1)) ease-out}
+.bhud[data-down] .bh-stance > :not(.bh-focus){opacity:.38;
+  transition:opacity calc(.24s * var(--vtt-motion-speed,1)) ease-out,background .15s}
+.bhud[data-down] :is(.bh-weapons,.bh-feats,.bh-moves,.bh-stance > :not(.bh-focus)):is(:hover,:focus-within),
+.bhud[data-down] .bh-held:is(:hover,:focus-within,.is-peek) > .bh-cc1{filter:none}
+
 .bh-fold{position:absolute;right:5px;top:5px;z-index:3;width:22px;height:22px;min-height:22px;max-height:22px;display:grid;place-items:center;
   background:rgba(5,6,10,.82);color:var(--bh-dim);box-shadow:inset 0 0 0 1px var(--bh-line-2);
   clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut-xs)),calc(100% - var(--bh-cut-xs)) 100%,0 100%);
@@ -492,7 +524,7 @@
 .bh-foes .bh-held:not(.is-sel):hover .dh-cc{filter:drop-shadow(0 6px 10px rgba(0,0,0,.55))}
 
 /* ══ DRAWERS ══════════════════════════════════════════════════════ */
-.bh-drawers{flex:none;width:72px;padding:6px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr);gap:3px}
+.bh-drawers{flex:none;padding:6px;display:grid;grid-auto-flow:column;grid-template-rows:repeat(3,26px);grid-auto-columns:28px;gap:3px}
 .bh-dw{position:relative;height:26px;min-height:26px;max-height:26px;display:flex;align-items:center;justify-content:center;gap:4px;
   color:var(--bh-dim);background:var(--bh-ink-2);box-shadow:inset 0 0 0 1px var(--bh-line);
   clip-path:polygon(0 0,100% 0,100% calc(100% - var(--bh-cut-xs)),calc(100% - var(--bh-cut-xs)) 100%,0 100%);
@@ -542,6 +574,25 @@ button.bh-drow:hover{background:var(--bh-ink-4)}
 .bh-rb:hover{background:var(--bh-ink-4)}
 .bh-rb b{font:700 13px/1 var(--bh-font)}
 .bh-rb span{font:500 11px/1.2 var(--bh-font);color:var(--bh-faint)}
+/* The macros: the hotbar's page, a row a slot. The number is a column of
+   its own so the names start in one place down the page; the icon is the
+   macro's own picture at the row's x-height, framed so a transparent one
+   still reads as a slot. */
+.bh-mac .bh-mk{flex:none;width:16px;text-align:right;font:650 11px/1 var(--bh-font);color:var(--bh-faint);font-variant-numeric:tabular-nums}
+.bh-mac .bh-mi{flex:none;display:block;width:20px;height:20px;margin:0;padding:0;border:0;object-fit:cover;
+  background:var(--bh-ink-3);box-shadow:inset 0 0 0 1px var(--bh-line)}
+.bh-mac b{flex:1 1 auto}
+.bh-dnone.bh-macs{min-width:252px}
+/* The pager stands at the head's right edge, on the title's line. */
+.bh-pager{margin-left:auto;align-self:center;display:flex;align-items:center;gap:2px;padding-left:10px}
+.bh-pager b{min-width:30px;text-align:center;font:700 12px/1 var(--bh-font);font-variant-numeric:tabular-nums}
+.bh-pager b i{font-style:normal;font-weight:500;color:var(--bh-faint)}
+.bh-pg{display:grid;place-items:center;width:22px;height:22px;min-height:22px;max-height:22px;
+  color:var(--bh-dim);background:var(--bh-ink-2);box-shadow:inset 0 0 0 1px var(--bh-line);transition:background .15s,color .15s}
+.bh-pg .bh-ic{width:12px;height:12px}
+.bh-pg:hover{background:var(--bh-ink-4);color:var(--bh-text)}
+.bh-pg[aria-disabled="true"]{opacity:.35;cursor:default}
+.bh-pg[aria-disabled="true"]:hover{background:var(--bh-ink-2);color:var(--bh-dim)}
 @keyframes bh-rise{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
 
 /* ══ THE PEEK ═════════════════════════════════════════════════════ */

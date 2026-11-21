@@ -77,14 +77,45 @@ import {
   type Sigils,
 } from "./sheets/cards.ts";
 import { postCard } from "./sheets/post-card.ts";
-import { canAct, liveOf, pressBox, pressMark, sameFrame, shapeOf, tookHit, type Live } from "./bottom-hud-shape.ts";
+import {
+  MACRO_PAGES,
+  canAct,
+  downOf,
+  escapeCloses,
+  liveOf,
+  macroRows,
+  offScreen,
+  openPage,
+  pressBox,
+  pressMark,
+  sameFrame,
+  shapeOf,
+  stepPage,
+  tookHit,
+  type Live,
+} from "./bottom-hud-shape.ts";
 import { rich } from "./ui/card.js";
 import { FACE } from "./ui/face.js";
 import { fit, nameFit } from "./ui/face-fx.js";
 import { setPool } from "./ui/gem.js";
 import { COMPACT } from "./ui/compact.js";
 import { setSeat } from "./ui/seat.js";
-import { DLIST, DRAWER, HUD, PEEK, REST, RULE_PEEK, flinch, framePlinth, placeDrawer, setFrame, setStrip } from "./ui/hud.js";
+import {
+  DLIST,
+  DRAWER,
+  HUD,
+  MACROS,
+  PAGER,
+  PEEK,
+  REST,
+  RULE_PEEK,
+  flinch,
+  framePlinth,
+  placeDrawer,
+  setDown,
+  setFrame,
+  setStrip,
+} from "./ui/hud.js";
 import { setMarks } from "./ui/mark.js";
 
 const TRACK = { hp: "hitPoints", st: "stress", ar: "armorSlots" } as const;
@@ -107,6 +138,10 @@ let drawn: { key: string; shape: string; live: Live; opts: any } | null = null;
 let model: Model | null = null;
 
 let drawer = "";
+/** The macros drawer's page: this client's, this session's, stored nowhere. 0 until it first opens. */
+let macroPage = 0;
+/** When the wheel last stepped it, so one flick of a trackpad is one page. */
+let macroWheel = 0;
 type PeekKind = "card" | "feat" | "stance";
 let peek: { kind: PeekKind; id: string; pinned: boolean } | null = null;
 let peekTimer: ReturnType<typeof setTimeout> | null = null;
@@ -114,6 +149,8 @@ let peekTimer: ReturnType<typeof setTimeout> | null = null;
 let gmPick: string | null = null;
 /** Puts the portrait-framing gesture down, while one is up. */
 let framing: (() => void) | null = null;
+/** The token a foe card or party seat has lit on the canvas, while the pointer rests on it. */
+let lit: any = null;
 
 interface Feat {
   name: string;
@@ -164,6 +201,8 @@ export function registerBottomHud(): void {
   host?.remove();
   host = document.createElement("div");
   host.className = "dh-bhud-host";
+  /* Foundry's tooltips open above the press, clear of the rail. */
+  host.dataset.tooltipDirection = "UP";
   wall.append(host);
 
   host.addEventListener("click", onClick);
@@ -174,7 +213,10 @@ export function registerBottomHud(): void {
   host.addEventListener("dragstart", onDragStart);
   host.addEventListener("dragover", onDragOver);
   host.addEventListener("drop", onDrop);
+  host.addEventListener("wheel", onWheel, { passive: false });
   document.addEventListener("pointerdown", onOutside, true);
+  /* Bubble on `document`, which is after anything focused has had the key and
+     before Foundry's KeyboardManager, which listens on `window`. */
   document.addEventListener("keydown", onKey);
 
   /* The right gutter is the sidebar's width, which the player can collapse
@@ -190,6 +232,14 @@ export function registerBottomHud(): void {
 
   const any = () => schedule();
   Hooks.on("daggerheart.bottomHudChanged", () => schedule(true));
+  /* The macros drawer is read when it opens and again when the hotbar moves
+     under it. Assigning a slot writes the User with `noHook`, so
+     `updateUser` never hears it — but Foundry re-renders its (hidden) hotbar
+     for exactly that write, and `renderHotbar` does. */
+  const macros = () => {
+    if (drawer === "macros") showDrawer("macros", false);
+  };
+  for (const h of ["createMacro", "updateMacro", "deleteMacro", "renderHotbar"]) Hooks.on(h, macros);
   for (const h of [
     "updateActor",
     "createItem",
@@ -248,8 +298,8 @@ function subject(): { role: "player"; actor: any } | { role: "gm" } | null {
   return mine.length ? { role: "player", actor: mine[0] } : null;
 }
 
-/** The characters at the table: every character a player owns. */
-const party = (): any[] =>
+/** The characters at the table: every character a player owns. Exported for `roll-call-host.ts`, whose "the party" is this one. */
+export const party = (): any[] =>
   [...((game as any).actors ?? [])].filter((a: any) => isChar(a) && a.hasPlayerOwner);
 
 /** The adversaries in play: every adversary token on the scene in view. */
@@ -316,6 +366,10 @@ function seatOf(a: any): any {
     hope: [Number(r.hope?.value ?? 0), Number(r.hope?.max ?? 0) + scars, scars],
   };
 }
+
+/** The defeated status, which the plinth's down plate says instead of a chip. */
+const defeated = (actor: any): boolean =>
+  !!actor?.statuses?.has?.((CONFIG as any).specialStatusEffects?.DEFEATED ?? "dead");
 
 function conditionsOf(actor: any): any[] {
   const effects = (CONFIG as any).statusEffects ?? [];
@@ -487,6 +541,11 @@ function playerModel(actor: any): Model {
       hopeLit: hopeMax ? hope / (hopeMax + scars) : 0,
       hope,
       conds: conditionsOf(actor),
+      down: downOf(pair(r.hitPoints), defeated(actor), "player"),
+      downText: {
+        dying: game.i18n.localize("DAGGERHEART.Down.Dying"),
+        dead: game.i18n.localize("DAGGERHEART.Down.Dead"),
+      },
     },
     vitals: {
       hope: [hope, hopeMax + scars, scars],
@@ -567,6 +626,8 @@ function gmModel(): Model {
       img: portraitOf(a) ?? a.img,
       hopeLit: 0,
       conds: conditionsOf(a),
+      down: downOf(pair(r.hitPoints), defeated(a), "gm"),
+      downText: { dead: game.i18n.localize("DAGGERHEART.Down.Defeated") },
     };
   }
 
@@ -608,6 +669,7 @@ function refresh(force: boolean): void {
   document.body.classList.toggle("dh-bhud-on", !!who);
   if (!who) {
     framing?.();
+    lightToken(null);
     host.replaceChildren();
     drawn = model = null;
     lift();
@@ -656,6 +718,11 @@ function paint(arrive: boolean): void {
   if (!host || !model) return;
   /* The plinth is about to be replaced; the gesture on it commits and ends. */
   framing?.();
+  /* The card or seat that lit a token, and the press a tooltip stands on, are
+     both about to be replaced; neither would hear the pointer leave. */
+  lightToken(null);
+  const tip = (game as any).tooltip;
+  if (tip?.element && host.contains(tip.element)) tip.deactivate();
   const o = model.opts;
   host.innerHTML = HUD({
     ...o,
@@ -684,6 +751,7 @@ function paint(arrive: boolean): void {
 
 /** Values only: the setters, and the one thing a value change also says. */
 function drive(root: HTMLElement, prev: Live, next: Live): void {
+  if ((next.down ?? null) !== (prev.down ?? null)) setDown(root, next.down ?? null);
   if (next.role === "player") {
     const gems = root.querySelector<HTMLElement>(".bh-hope .gems");
     if (gems && next.hope !== prev.hope) setPool(gems, next.hope ?? 0);
@@ -706,10 +774,10 @@ function drive(root: HTMLElement, prev: Live, next: Live): void {
       const short = (next.hope ?? 0) < Number(f.dataset.hope);
       if (short) {
         f.setAttribute("aria-disabled", "true");
-        f.title = `Needs ${f.dataset.hope} Hope`;
+        f.dataset.tooltipText = `Needs ${f.dataset.hope} Hope`;
       } else {
         f.removeAttribute("aria-disabled");
-        f.removeAttribute("title");
+        f.removeAttribute("data-tooltip-text");
       }
     }
   }
@@ -770,7 +838,59 @@ function lift(): void {
 
 /* ── drawers ──────────────────────────────────────────────────────── */
 
+/* The hotbar the rail hides, a page at a time, on either rail: a macro is the
+   user's, not the character's, so it answers to whoever is at the keyboard
+   whatever the rail is of. */
+function macrosDrawer(): string {
+  const user = game.user;
+  const page = (p: number) => macroRows(user?.getHotbarMacros?.(p));
+  if (!macroPage) {
+    const filled = Array.from({ length: MACRO_PAGES }, (_, i) => page(i + 1).length > 0);
+    macroPage = openPage(filled, Number((ui as any).hotbar?.page ?? 1));
+  }
+  const rows = page(macroPage);
+  const any = rows.length > 0 || Object.values(user?.hotbar ?? {}).some((id) => game.macros?.get(id as string));
+  return DRAWER({
+    title: game.i18n.localize("DAGGERHEART.Macros.Heading"),
+    note: esc(game.i18n.localize("DAGGERHEART.Macros.Note")),
+    head: PAGER({
+      page: macroPage,
+      pages: MACRO_PAGES,
+      prev: game.i18n.localize("DAGGERHEART.Macros.Prev"),
+      next: game.i18n.localize("DAGGERHEART.Macros.Next"),
+    }),
+    body: MACROS({
+      rows,
+      empty: any
+        ? game.i18n.format("DAGGERHEART.Macros.EmptyPage", { page: macroPage })
+        : game.i18n.localize("DAGGERHEART.Macros.Empty"),
+    }),
+  });
+}
+
+function turnMacroPage(d: number): void {
+  const next = stepPage(macroPage || 1, d);
+  if (next === macroPage) return deny(rail()?.querySelector(`.bh-drawer .bh-pg[data-page="${Math.sign(d)}"]`));
+  macroPage = next;
+  showDrawer("macros", false);
+}
+
+/* The wheel over the drawer steps a page. One step per gesture: a trackpad
+   sends a stream of small deltas, and four pages for one flick is a list
+   nobody can aim at. */
+function onWheel(e: WheelEvent): void {
+  if (drawer !== "macros" || !(e.target as HTMLElement).closest?.(".bh-drawer")) return;
+  e.preventDefault();
+  if (!e.deltaY || e.timeStamp - macroWheel < 180) return;
+  macroWheel = e.timeStamp;
+  const next = stepPage(macroPage || 1, e.deltaY);
+  if (next === macroPage) return;
+  macroPage = next;
+  showDrawer("macros", false);
+}
+
 function drawerBody(k: string): string {
+  if (k === "macros") return macrosDrawer();
   const m = model;
   if (!m || m.role !== "player") return "";
   const a = m.actor;
@@ -1037,8 +1157,44 @@ function peekTarget(t: HTMLElement): { kind: PeekKind; id: string } | null {
   return id ? { kind: "card", id } : null;
 }
 
+/* A foe card and a party seat stand for a token, so resting on one lights it
+   on the board — the combat tracker's rows do exactly this, with the same two
+   calls. A token the user cannot see or hover, or already holds, stays as it is. */
+function tokenOf(el: HTMLElement): any {
+  const c: any = canvas;
+  if (!c?.ready) return null;
+  const foe = el.closest(".bh-foes .bh-held")?.querySelector<HTMLElement>("[data-card]")?.dataset.card;
+  if (foe) return c.tokens?.get?.(foe) ?? null;
+  const seat = el.closest<HTMLElement>("[data-seat]")?.dataset.seat;
+  return seat ? ((game as any).actors?.get(seat)?.getActiveTokens?.()?.[0] ?? null) : null;
+}
+
+function lightToken(el: HTMLElement | null, e?: PointerEvent): void {
+  let tok = el ? tokenOf(el) : null;
+  if (tok && !(tok.visible && tok._canHover?.(game.user, e) !== false)) tok = null;
+  if (tok === lit) return;
+  const was = lit;
+  lit = tok;
+  const ev = e ?? { buttons: 0 };
+  if (was && !was.destroyed) was._onHoverOut?.(ev);
+  if (tok && !tok.controlled) tok._onHoverIn?.(ev, { hoverOutOthers: true });
+}
+
+/* A pick the screen is not showing is brought into view: the card was the
+   only way to find that creature, and choosing it should not mean hunting. */
+function bringIntoView(tok: any, root: HTMLElement): void {
+  const c: any = canvas;
+  const at0 = tok?.center;
+  if (!c?.ready || !at0) return;
+  const at = c.clientCoordinatesFromCanvas?.(at0) ?? c.stage?.worldTransform?.apply?.({ x: at0.x, y: at0.y });
+  const mid = document.getElementById("ui-middle")?.getBoundingClientRect();
+  const view = mid?.width ? mid : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+  if (offScreen(at, view, root.getBoundingClientRect().top)) void c.animatePan({ x: at0.x, y: at0.y });
+}
+
 function onOver(e: PointerEvent): void {
   const t = e.target as HTMLElement;
+  lightToken(t, e);
   if (t.closest(".bh-peek")) {
     if (peekTimer) clearTimeout(peekTimer);
     peekTimer = null;
@@ -1056,6 +1212,7 @@ function onOver(e: PointerEvent): void {
 }
 
 function onOut(e: PointerEvent): void {
+  if (!host?.contains(e.relatedTarget as Node | null)) lightToken(null, e);
   if (!peek || peek.pinned) {
     if (peekTimer && !peek) clearTimeout(peekTimer);
     return;
@@ -1083,10 +1240,23 @@ function onPressKey(e: KeyboardEvent): void {
   t.click();
 }
 
+/* Escape puts away what is open and stops there: left to reach Foundry it
+   would release the controlled token too, and a GM playing a PC's token would
+   watch the rail flip to the adversary rail. The framing gesture eats its own
+   Escape in capture, before this ever runs. */
 function onKey(e: KeyboardEvent): void {
-  if (e.key !== "Escape") return;
-  if (peek) closePeek();
-  else if (drawer) closeDrawer();
+  if (e.isComposing) return;
+  const t = e.target as HTMLElement | null;
+  const field = !!t?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .editor');
+  /* No rail, or a folded one (hud.css hides both), is nothing on screen to close. */
+  const r = rail();
+  const shown = !!r && !r.hasAttribute("data-folded");
+  const what = escapeCloses(e.key, { peek: !!peek && shown, drawer: !!drawer && shown }, field && !host?.contains(t));
+  if (!what) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (what === "peek") closePeek();
+  else closeDrawer();
 }
 
 /* ── presses ──────────────────────────────────────────────────────── */
@@ -1156,6 +1326,20 @@ async function onClick(e: MouseEvent): Promise<void> {
     if (drawer === k) closeDrawer();
     else showDrawer(k);
     return;
+  }
+
+  /* The macros drawer answers on both rails and to an observer too: what it
+     runs is the user's, and the rail being someone else's changes nothing. */
+  const pg = t.closest<HTMLElement>(".bh-drawer .bh-pg[data-page]");
+  if (pg) return turnMacroPage(Number(pg.dataset.page));
+  const mac = t.closest<HTMLElement>(".bh-drawer button.bh-mac[data-row]");
+  if (mac) {
+    const macro = game.macros?.get(mac.dataset.row!.slice(6));
+    if (!macro) {
+      ui.notifications?.warn(game.i18n.localize("DAGGERHEART.Macros.Gone"));
+      return void showDrawer("macros", false);
+    }
+    return void macro.execute();
   }
 
   if (m.role === "gm") return onGmClick(t, m, root, may);
@@ -1335,7 +1519,10 @@ async function onGmClick(t: HTMLElement, m: Model, root: HTMLElement, may: boole
   if (foe) {
     gmPick = foe.dataset.card!;
     const tok = m.foes.find((x) => x.id === gmPick);
-    if (tok?.control) tok.control({ releaseOthers: true });
+    if (tok?.control) {
+      tok.control({ releaseOthers: true });
+      bringIntoView(tok, root);
+    }
     schedule();
     return;
   }

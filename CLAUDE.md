@@ -6536,6 +6536,22 @@ the hand and what it draws from read as one group and the slack falls after
 both. A drawer's right edge is measured onto the tiles' (`placeDrawer`, which
 the study page calls too), so it still rises over the press that opened it.
 
+**Hiding the hotbar took the macros with it, so the rail carries them.** A
+Macros drawer is the seventh tile on a player's rail and the only one on the
+GM's, because a macro is the user's and not the character's: its rows run
+whatever the rail is of, observer included. It is the hotbar one page at a
+time — `getHotbarMacros(page)`, empty slots left out, each row its absolute
+slot number, since the page is the drawer's own and a key label would name
+Foundry's. The pager in the head and the wheel over the drawer both step it,
+**clamped rather than wrapped**, because a wheel that runs off page 5 onto
+page 1 is a list jumping under the pointer. The page lives in a module
+variable and nowhere else, and the list is read on open, never put in the
+rail's options, so `shapeOf` never sees it. It re-reads on the macro hooks and
+on `renderHotbar`, and the second is not decoration: assigning a slot writes
+the User with `noHook`, so `updateUser` never hears it, while Foundry still
+re-renders its hidden hotbar for exactly that write. `stepPage`, `openPage`
+and `macroRows` are the pure half, in `bottom-hud-shape.ts`.
+
 **A Martial Artist gets a stance plate after the features**, gated as the
 sheet's Focus row is, on `subclassName`. It is three lines: the Focus gems,
 the stance you are in (a press that pins its peek, where Drop is), and a Shift
@@ -6549,6 +6565,48 @@ payer, the drop and the active stance are all `stances.ts`. Stances are
 `feature` Items, so they are kept off the Features plate, since sixteen names
 would bury the class's own rules. Focus is a value and the active stance is a
 shape.
+
+**Escape that puts something away stops there.** Foundry's dismiss binding
+answers Escape by releasing the controlled token, and a GM on a PC's rail is
+there *because* of that token — so closing a peek used to swap the whole rail
+for the adversary rail as well. `onKey` listens in the bubble on `document`,
+which is after whatever is focused and before Foundry's `KeyboardManager` on
+`window`, and when `escapeCloses` says the key closed a peek or a drawer it is
+eaten. With nothing of the rail's open the key goes on untouched, and so does
+one typed into somebody else's field. The framing gesture eats its own in
+capture.
+
+**A foe card or a party seat lights its token**, with the combat tracker's own
+two calls, `_onHoverIn(…, {hoverOutOthers:true})` and `_onHoverOut`, and only
+for a token the user can see and hover and is not already holding. The lit
+token is put out when the pointer leaves the rail and before every redraw,
+since a replaced card never hears the pointer go. **A pick the screen is not
+showing pans to it**: off `#ui-middle`'s box or under the rail's top, which
+`offScreen` decides, because the card was the only way to find that creature.
+
+**The rail's hints are Foundry's tooltips.** `tip()` in `design/hud.js` writes
+`data-tooltip-text`, which is plain text on v13 and v14 alike; `data-tooltip`
+would render a typed name as markup. They open upward, off the host's
+`data-tooltip-direction`, and one standing on a press is put away before a
+redraw replaces it. The study page has no Foundry and lends the browser's
+title on hover instead. The ratchet asserts no `title=` comes back.
+
+**A down character's rail steps back.** Marking the last Hit Point owes a
+death move, and the defeated status is past one, so the weapons, the features,
+the stance's rows and the hand dim and a quiet plate above the name says
+*Death move* or *Dead*. Hope, the tracks, the traits and the drawers stay lit:
+a cleared Hit Point is how a character comes back, and two of the three death
+moves are decided by the Hope and Fear dice. Dimmed and never disabled, because a GM may rule
+otherwise, and a plate comes back whole under the pointer. The hand darkens
+rather than fades, since a translucent card shows the one behind it through
+its painting. `downOf` in `bottom-hud-shape.ts` is the rule and **down is a
+value**: the plate is always in the markup, and `setDown` writes one attribute
+on the rail and one word on the plate, so going down never replays a landing.
+It is a state rather than an event — one easing in, scaled by the motion dial
+and gone under reduced motion, and nothing idle. The GM's panel takes the same
+treatment for an adversary at its last Hit Point, as *Defeated*: its moves step
+back and its strips stay pressable. The party seats keep their own `down`,
+which is older and is still a shape.
 
 `tools/test-bottom-hud.mjs` is the ratchet. It runs in `typecheck` and is
 negative-controlled. It asserts that marks are values and maxima are shape,
@@ -6566,6 +6624,84 @@ FormApplication subclass and **throws** otherwise. The throw happened inside
 sync and the creation window's refresh hooks among them. A full Stress track
 was not making anyone Vulnerable. The menu is an ApplicationV2 now, built at
 registration because `foundry.applications` does not exist at import time.
+
+## Calling for a roll
+
+"Everybody make an Instinct Roll" is said at every table several times a
+session, and was answered by four people each going to find the trait on four
+sheets. A **call** is the GM saying it once: a press at the foot of the GM
+rail's party stack opens a panel, and a row of it sends. `src/module/roll-call.ts`
+is every decision and has no Foundry in it; `roll-call-host.ts` is the socket,
+the clock and the DOM; `design/call.*` draws the door, the panel and the bar.
+
+**The panel is a sentence.** Posted how (Open, or GM only), against what
+Difficulty, and whether the players are told it; then a grid of every party
+character's seven numbers — the six traits and Spellcast — where a column head
+picks a character (none picked is everybody, "the party" being exactly the GM
+rail's seats, `party()` in `bottom-hud.ts`) and a row head sends. A cell is
+`rollBase`, the number that character's popover would open at, and the best in
+a row is underlined unless everybody is equal. While a call is out the panel
+says, per character, waiting, rolling, the total with Hope or Fear and the
+verdict against the Difficulty, or away (nobody connected to answer).
+
+**On a player's rail it is a bar**, above the vitals: the trait at display
+size, the Difficulty in the adversary panel's diamond when it was shown, a
+line saying only you and the GM will see the result when that is so, a Roll
+press that opens the ordinary roll popover through `askRoll` anchored to it,
+a dismiss, and a foot that drains by the time left. It is ink with the paper
+edge, because every hue on the rail is a signal that already means something
+and a call is none of them. Rolling answers the call; dismissing the popover
+does not. One bar per called character, so a companion is a second bar. With
+the HUD switched off the bar stands alone over the foot of the screen.
+
+**Five rules, each held by `tools/test-roll-call.mjs`** (`npm run
+roll-call:check`, in `typecheck`, negative-controlled):
+
+- **Only a GM's call is honoured, and only on the server's word.** The
+  transport is the system socket (`"socket": true` in `system.json`), and
+  Foundry's server calls the listener with the payload and the id of the user
+  whose socket sent it (`handleCustomSocket` emits `(data, this.user.id)`).
+  That id is checked against an active GM; the payload has no sender field and
+  none would be read.
+- **The key is one of seven**, at both ends — it becomes a press on somebody
+  else's screen and an argument to the roll engine.
+- **A hidden Difficulty never leaves the GM's screen.** It is not in the
+  payload, the player's card says there was no target number, and the panel
+  reads the total against the number as it stood when the call went out.
+- **A call goes only to the called characters' players**, by `recipients`,
+  so the server delivers each payload to that user's sockets alone; the
+  assigned player first, connected owners otherwise, never a GM. Each payload
+  names only that player's own characters.
+- **An answer is a chat message, not a socket reply.** The roll carries the
+  call's id in its flags (`call`, beside `weaponId`), and the GM's client
+  counts it only if it is a duality roll by a called character, made by a user
+  who owns that character, inside the call's life. The flag is a pointer and
+  not evidence; the total is read off the plate the engine wrote, and is held
+  back until the dice land (`waitFor3dDice`), as every result on the rail is.
+
+**Two message modes, not three.** A GM-only call threads `whisper` through
+`askRoll` → `rollTrait` → `rollDuality` to `postPlate`'s existing GM whisper,
+which the roller still sees as the author. **Blind is declined**: a duality
+roll is the player's to act on — a Hope result is a claim on a card they could
+not see — and the Fear lands on a pool that is public by design, so a blind
+roll would be one whose outcome the whole table reads off the Fear strip except
+the person who made it. The same is true, more mildly, of GM only: it hides the
+card and the total, not the Fear the GM gains.
+
+**A call is never stored.** It ends when answered, withdrawn, or after
+`CALL_LIFE` (three minutes), and a reload on either side forgets it. It stands
+on the rail without `bottom-hud.ts` knowing: the host watches the HUD's host
+element for the markup replacement a shape change makes and puts its objects
+back from state, so an arrival plays once and the drain restarts where the
+clock already is. `game.daggerheart.rollCall()` reports; `.send(key)` and
+`.end()` are the same presses.
+
+**Not done:** the socket only exists after a Foundry **server restart** on the
+version that adds it, which a world upgrade does not do by itself; nothing has
+been exercised across two live clients yet. No sound, no chat record of the
+call itself, no "declined" reply — a dismiss is local. Reaction Rolls are not
+callable, for the reason they get no card button: the roll belongs to the
+other side of the exchange.
 
 ## Not done yet
 

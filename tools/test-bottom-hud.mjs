@@ -18,7 +18,23 @@
  */
 
 import assert from "node:assert/strict";
-import { liveOf, shapeOf, tookHit, canAct, pressBox, pressMark, sameFrame } from "../src/module/bottom-hud-shape.ts";
+import {
+  liveOf,
+  shapeOf,
+  tookHit,
+  canAct,
+  pressBox,
+  pressMark,
+  sameFrame,
+  downOf,
+  escapeCloses,
+  offScreen,
+  stepPage,
+  openPage,
+  macroRows,
+  MACRO_PAGES,
+} from "../src/module/bottom-hud-shape.ts";
+import { readFileSync } from "node:fs";
 import { planPlace, canPayRecall } from "../src/module/loadout.ts";
 
 let n = 0;
@@ -117,6 +133,37 @@ ok("the portrait's framing is a value, so placing it never rebuilds the rail", (
   const c = clone(a);
   c.plinth.frameable = false;
   assert.notEqual(shapeOf(a), shapeOf(c));
+});
+
+ok("going down and coming back are a value, so the rail is driven and never rebuilt", () => {
+  const a = player();
+  a.plinth.downText = { dying: "Death move", dead: "Dead" };
+  for (const down of ["dying", "dead"]) {
+    const b = clone(a);
+    b.plinth.down = down;
+    b.vitals.hp[0] = 6;
+    assert.equal(shapeOf(a), shapeOf(b), `${down} rebuilt the rail`);
+    assert.equal(liveOf(b).down, down);
+  }
+  assert.equal(liveOf(a).down, null);
+  const g = { ...gm(), plinth: { name: "Lieutenant", down: "dead" } };
+  assert.equal(shapeOf(g), shapeOf({ ...g, plinth: { name: "Lieutenant", down: null } }));
+  assert.equal(liveOf(g).down, "dead");
+  /* The plate's words are not a value: a rail whose words change is redrawn. */
+  const c = clone(a);
+  c.plinth.downText.dying = "Avoid Death";
+  assert.notEqual(shapeOf(a), shapeOf(c));
+});
+
+ok("down is the last Hit Point or the defeated status, and only those", () => {
+  assert.equal(downOf([5, 6], false, "player"), null);
+  assert.equal(downOf([6, 6], false, "player"), "dying", "the last Hit Point owes a death move");
+  assert.equal(downOf([2, 6], true, "player"), "dead", "the defeated status says so outright");
+  assert.equal(downOf([6, 6], true, "player"), "dead", "dead outranks dying");
+  assert.equal(downOf([0, 0], false, "player"), null, "a track with no boxes is unfilled, not gone");
+  assert.equal(downOf(undefined, false, "player"), null);
+  assert.equal(downOf([3, 3], false, "gm"), "dead", "an adversary at its last Hit Point is defeated, with no death move");
+  assert.equal(downOf([2, 3], false, "gm"), null);
 });
 
 ok("shapeOf does not mutate its input", () => {
@@ -267,6 +314,91 @@ ok("a card dropped back where it was writes nothing", () => {
 
 ok("an unknown card is not a plan", () => {
   assert.equal(planPlace(deck(["a"], []), "zz", "vault"), null);
+});
+
+console.log("Escape, the board, and the tooltips");
+
+ok("Escape is eaten only when it closes something of the rail's", () => {
+  const none = { peek: false, drawer: false };
+  assert.equal(escapeCloses("Escape", { peek: true, drawer: true }, false), "peek", "a peek goes first");
+  assert.equal(escapeCloses("Escape", { peek: false, drawer: true }, false), "drawer");
+  /* Nothing open: the key is Foundry's, and releasing the token is its job. */
+  assert.equal(escapeCloses("Escape", none, false), null);
+  assert.equal(escapeCloses("Enter", { peek: true, drawer: true }, false), null);
+  /* Typed into somebody else's field, Escape belongs to the field. */
+  assert.equal(escapeCloses("Escape", { peek: true, drawer: true }, true), null);
+});
+
+ok("a pick pans only to a token the GM cannot see", () => {
+  const view = { left: 100, top: 40, right: 1500, bottom: 900 };
+  assert.equal(offScreen({ x: 800, y: 400 }, view, 780), false);
+  for (const at of [
+    { x: 50, y: 400 },
+    { x: 1600, y: 400 },
+    { x: 800, y: 10 },
+    { x: 800, y: 950 },
+  ]) {
+    assert.equal(offScreen(at, view, 780), true, JSON.stringify(at));
+  }
+  /* Under the rail is as hidden as past the edge. */
+  assert.equal(offScreen({ x: 800, y: 820 }, view, 780), true);
+  assert.equal(offScreen({ x: 800, y: 820 }, view, null), false, "with no rail, the view's own bottom");
+  /* A point nobody could compute is not a reason to move the board. */
+  assert.equal(offScreen(null, view, 780), false);
+  assert.equal(offScreen({ x: NaN, y: 1 }, view, 780), false);
+});
+
+ok("the rail's hints are Foundry's plain-text tooltips, never a native title", () => {
+  const src = readFileSync(new URL("../design/hud.js", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /\stitle="/, "a native title opens beside Foundry's tooltip");
+  assert.doesNotMatch(readFileSync(new URL("../design/call.js", import.meta.url), "utf8"), /\stitle="/, "the call panel and bar too");
+  assert.doesNotMatch(src, /data-tooltip="|data-tooltip-html=/, "data-tooltip renders markup, and names are typed by players");
+  assert.match(src, /data-tooltip-text="\$\{esc\(/, "the hint goes through esc()");
+  const host = readFileSync(new URL("../src/module/bottom-hud.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(host, /\.title = |removeAttribute\("title"\)/, "the live Hope reading writes the tooltip, not a title");
+});
+
+console.log("the macros drawer");
+
+ok("the pager clamps at both ends rather than wrapping", () => {
+  assert.equal(stepPage(1, -1), 1);
+  assert.equal(stepPage(MACRO_PAGES, 1), MACRO_PAGES);
+  assert.equal(stepPage(2, 1), 3);
+  assert.equal(stepPage(3, -1), 2);
+});
+
+ok("a step is one page whatever the wheel's delta", () => {
+  assert.equal(stepPage(2, 120), 3);
+  assert.equal(stepPage(2, -0.4), 1);
+  assert.equal(stepPage(2, 0), 2);
+});
+
+ok("anything that is not a page comes back as one", () => {
+  assert.equal(stepPage(NaN, 0), 1);
+  assert.equal(stepPage(9, 0), MACRO_PAGES);
+  assert.equal(stepPage(0, 0), 1);
+});
+
+ok("the drawer opens on the hotbar's page, else the first page holding a macro", () => {
+  const f = [false, false, true, false, true];
+  assert.equal(openPage(f, 5), 5);
+  assert.equal(openPage(f, 1), 3);
+  assert.equal(openPage([false, false, false, false, false], 2), 2);
+});
+
+ok("a page's rows are its filled slots, by absolute slot number", () => {
+  const slots = Array.from({ length: 10 }, (_, i) => ({ slot: 11 + i, macro: null }));
+  slots[0].macro = { id: "m1", name: "Rally", img: "icons/rally.svg" };
+  slots[9].macro = { id: "m2", name: "Dash" };
+  assert.deepEqual(macroRows(slots), [
+    { id: "m1", slot: 11, name: "Rally", img: "icons/rally.svg" },
+    { id: "m2", slot: 20, name: "Dash", img: null },
+  ]);
+});
+
+ok("an empty page, and no page at all, are no rows", () => {
+  assert.deepEqual(macroRows(Array.from({ length: 10 }, (_, i) => ({ slot: i + 1, macro: null }))), []);
+  assert.deepEqual(macroRows(undefined), []);
 });
 
 console.log(`\nbottom HUD: ${n} checks passed`);
