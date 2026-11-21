@@ -323,6 +323,11 @@
       "Next": "Next page",
       "Gone": "That macro no longer exists."
     },
+    "Down": {
+      "Dying": "Death move",
+      "Dead": "Dead",
+      "Defeated": "Defeated"
+    },
     "Plate": {
       "DealDamage": "Deal {damage}",
       "DealDamageMax": "Deal {damage}, starting at maximum",

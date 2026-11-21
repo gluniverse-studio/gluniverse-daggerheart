@@ -6591,6 +6591,23 @@ would render a typed name as markup. They open upward, off the host's
 redraw replaces it. The study page has no Foundry and lends the browser's
 title on hover instead. The ratchet asserts no `title=` comes back.
 
+**A down character's rail steps back.** Marking the last Hit Point owes a
+death move, and the defeated status is past one, so the weapons, the features,
+the stance's rows and the hand dim and a quiet plate above the name says
+*Death move* or *Dead*. Hope, the tracks, the traits and the drawers stay lit:
+a cleared Hit Point is how a character comes back, and two of the three death
+moves are decided by the Hope and Fear dice. Dimmed and never disabled, because a GM may rule
+otherwise, and a plate comes back whole under the pointer. The hand darkens
+rather than fades, since a translucent card shows the one behind it through
+its painting. `downOf` in `bottom-hud-shape.ts` is the rule and **down is a
+value**: the plate is always in the markup, and `setDown` writes one attribute
+on the rail and one word on the plate, so going down never replays a landing.
+It is a state rather than an event — one easing in, scaled by the motion dial
+and gone under reduced motion, and nothing idle. The GM's panel takes the same
+treatment for an adversary at its last Hit Point, as *Defeated*: its moves step
+back and its strips stay pressable. The party seats keep their own `down`,
+which is older and is still a shape.
+
 `tools/test-bottom-hud.mjs` is the ratchet. It runs in `typecheck` and is
 negative-controlled. It asserts that marks are values and maxima are shape,
 that the foe order is shape, that the framing is a value, that a player rail

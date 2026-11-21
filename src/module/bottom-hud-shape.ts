@@ -31,6 +31,24 @@ export interface SeatLive {
   hope?: Pair | null;
 }
 
+/** `dying` owes a death move; `dead` is past one, or an adversary defeated. */
+export type Down = "dying" | "dead" | null;
+
+/**
+ * Is the rail's subject down?
+ *
+ * The defeated status says so outright. Otherwise a full Hit Point track does:
+ * a character marking their last Hit Point must make a death move, so they are
+ * `dying` until it is made or the track is cleared, and an adversary marking
+ * its last is simply defeated, so it is `dead`. A track with no maximum is a
+ * creature nothing has filled in yet, not one already gone.
+ */
+export function downOf(hp: Pair | undefined, defeated: boolean, role: "player" | "gm"): Down {
+  if (defeated) return "dead";
+  if (!hp || !(hp[1] > 0) || hp[0] < hp[1]) return null;
+  return role === "gm" ? "dead" : "dying";
+}
+
 /** Every number on the rail that a setter moves rather than a redraw. */
 export interface Live {
   role: "player" | "gm";
@@ -45,6 +63,9 @@ export interface Live {
   /** The plinth's framing, `system.portrait.hud`: a value, so placing the
       picture never rebuilds the rail it is placed in. */
   frame?: { x: number; y: number; scale: number };
+  /** Whether the rail's subject is down (`downOf`): a value, because going
+      down and coming back are one attribute and one word on the plinth. */
+  down?: Down;
   /** The party, by actor id. */
   seats: Record<string, SeatLive>;
   /** Each foe card's Hit Points, by token id. */
@@ -63,7 +84,7 @@ export function liveOf(o: any): Live {
   const foes: Record<string, Pair> = {};
   for (const f of o?.foes?.foes ?? []) if (f?.id) foes[f.id] = live(f.hp) as Pair;
   if (o?.role === "gm") {
-    return { role: "gm", hp: live(o.adversary?.hp), st: live(o.adversary?.st), seats, foes };
+    return { role: "gm", hp: live(o.adversary?.hp), st: live(o.adversary?.st), down: o.plinth?.down ?? null, seats, foes };
   }
   return {
     role: "player",
@@ -74,6 +95,7 @@ export function liveOf(o: any): Live {
     ar: live(o?.vitals?.ar),
     focus: live(o?.stance?.focus),
     frame: o?.plinth?.frame ? { ...o.plinth.frame } : undefined,
+    down: o?.plinth?.down ?? null,
     seats,
     foes,
   };
@@ -100,6 +122,9 @@ export function shapeOf(o: any): string {
     delete c.plinth.hopeLit;
     delete c.plinth.hope;
     delete c.plinth.frame;
+    /* Down is the rail's attribute and the plinth plate's word, both of which
+       `setDown` writes; its two words (`downText`) are shape. */
+    delete c.plinth.down;
   }
   /* Which features the purse can pay for is a reading of Hope, not a shape:
      the setter dims and lights them from their own `data-hope`. */
