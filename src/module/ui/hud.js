@@ -56,6 +56,10 @@ export const ICON = {
 };
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/* A press's hint is Foundry's tooltip, not the browser's: `data-tooltip-text`
+   is plain text on v13 and v14 alike, where `data-tooltip` renders markup and
+   a name is whatever somebody typed. Empty says nothing, and is not drawn. */
+const tip = s => s ? ` data-tooltip-text="${esc(s)}"` : '';
 const sign = n => n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0';
 
 /* ── the plinth ───────────────────────────────────────────────────
@@ -83,10 +87,10 @@ export const PLINTH = (o) => `
   <span class="bh-plate"></span>
   <span class="bh-glow" aria-hidden="true"></span>
   <span class="bh-fig" aria-hidden="true"><span class="bh-img" style="background-image:url('${esc(o.cutout || o.img)}')"></span></span>
-  ${o.frameable ? `<button type="button" class="bh-frm" data-act="frame" title="Frame the portrait — drag to pan, scroll to zoom, double-click to reset, Enter to finish" aria-label="Frame the portrait">${ICON.frame}</button>
+  ${o.frameable ? `<button type="button" class="bh-frm" data-act="frame"${tip('Frame the portrait — drag to pan, scroll to zoom, double-click to reset, Enter to finish')} aria-label="Frame the portrait">${ICON.frame}</button>
   <span class="bh-frhint" aria-hidden="true">Drag · scroll · Enter</span>` : ''}
   ${o.conds?.length ? `<ul class="bh-conds">${o.conds.map(c => `
-    <li class="bh-cond" data-cond="${c.id}"${c.tone ? ` data-tone="${c.tone}"` : ''} title="${esc(c.name)}">
+    <li class="bh-cond" data-cond="${c.id}"${c.tone ? ` data-tone="${c.tone}"` : ''}${tip(c.name)}>
       <img src="${esc(c.icon)}" alt=""><span>${esc(c.name)}</span></li>`).join('')}</ul>` : ''}
   ${o.hope != null ? `<span class="bh-ph" data-pool-n><b>${o.hope}</b><span class="bh-sr"> Hope</span></span>` : ''}
   <span class="bh-nameplate">
@@ -179,7 +183,7 @@ const BOX_RE = /<i class="(?:on)?"(?=><u>)/g;
 const GEM_RE = /<i class="gem(?![^"]*\bscar\b)[^"]*"/g;
 
 export const TRACK = (kind, [m, max]) => `
-<div class="bh-trk" data-track="${kind}" role="group" aria-label="${STRIP_NAME[kind]}" title="${STRIP_NAME[kind]}">${
+<div class="bh-trk" data-track="${kind}" role="group" aria-label="${STRIP_NAME[kind]}"${tip(STRIP_NAME[kind])}>${
   pressable(MARKS({ label: STRIP_KEY[kind], total: max, marked: Math.max(0, Math.min(max, m)), kind: MK_KIND[kind] }),
     BOX_RE, (i) => `${STRIP_NAME[kind]} ${i} of ${max}`)}</div>`;
 
@@ -196,7 +200,7 @@ export const VITALS = (o) => {
   </div>
   <div class="bh-foot">
     ${THRESHOLDS(o.thresholds)}
-    <button type="button" class="bh-hit" data-act="damage" title="Take damage">${ICON.hit}<span>Hit</span></button>
+    <button type="button" class="bh-hit" data-act="damage"${tip('Take damage')}>${ICON.hit}<span>Hit</span></button>
   </div>
 </section>`;
 };
@@ -212,14 +216,14 @@ const TRAIT_ORDER = [['agility', 'Agi'], ['strength', 'Str'], ['finesse', 'Fin']
   ['instinct', 'Ins'], ['presence', 'Pre'], ['knowledge', 'Kno']];
 
 const WEAPON = (w, slot) => `
-  <button type="button" class="bh-wpn" data-weapon="${slot}" data-act="attack" title="Attack with ${esc(w.name)}">
+  <button type="button" class="bh-wpn" data-weapon="${slot}" data-act="attack"${tip(`Attack with ${w.name}`)}>
     <b>${esc(w.name)}</b><span>${esc(w.meta)}</span><em>${esc(w.dmg)}</em>
   </button>`;
 
 export const ACTIONS = (o) => `
 <section class="bh-pl bh-actions">
   <div class="bh-traits">${TRAIT_ORDER.map(([k, short]) => `
-    <button type="button" class="bh-trait${o.marked?.includes(k) ? ' is-marked' : ''}" data-trait="${k}" title="Roll ${k[0].toUpperCase() + k.slice(1)}${o.marked?.includes(k) ? ' · marked this tier' : ''}">
+    <button type="button" class="bh-trait${o.marked?.includes(k) ? ' is-marked' : ''}" data-trait="${k}"${tip(`Roll ${k[0].toUpperCase() + k.slice(1)}${o.marked?.includes(k) ? ' · marked this tier' : ''}`)}>
       <span>${short}</span><b>${sign(o.traits[k] ?? 0)}</b></button>`).join('')}
   </div>
   <div class="bh-weapons">${o.weapon ? WEAPON(o.weapon, 'primary') : '<span class="bh-wpn is-none">No weapon equipped</span>'}${o.secondary ? WEAPON(o.secondary, 'secondary') : ''}</div>
@@ -260,7 +264,7 @@ export const FEATURES = ({ list, hope = Infinity, max = 4 }) => {
     const short = f.hope > hope;
     return `
   <button type="button" class="bh-feat${f.hope ? ' is-hope' : ''}${f.spent ? ' is-spent' : ''}" data-feature="${esc(f.name)}"${f.hope ? ` data-hope="${f.hope}"` : ''}${
-      short ? ` aria-disabled="true" title="Needs ${f.hope} Hope"` : ''}>
+      short ? ` aria-disabled="true"${tip(`Needs ${f.hope} Hope`)}` : ''}>
     <b>${esc(f.name)}</b>${f.spent ? SR(', spent until it refreshes') : ''}${FEAT_READ(f)}</button>`; }).join('')}${more ? `
   <button type="button" class="bh-feat is-more" data-drawer="feats"><b>${more} more</b><span class="bh-fr">${ICON.cards}</span></button>` : ''}
 </section>`;
@@ -282,7 +286,7 @@ export const STANCE = ({ focus: [cur, max], active, known = 0 }) => `
     <span class="bh-fn"><b>${cur}</b><s>/${max}</s><span class="bh-sr"> Focus</span></span>
   </div>
   ${active
-    ? `<button type="button" class="bh-feat bh-stn" data-stance="${esc(active.id)}" title="${esc(active.name)}, in stance"><b>${esc(active.name)}</b><span class="bh-fr is-dice">T${active.tier}</span></button>`
+    ? `<button type="button" class="bh-feat bh-stn" data-stance="${esc(active.id)}"${tip(`${active.name}, in stance`)}><b>${esc(active.name)}</b><span class="bh-fr is-dice">T${active.tier}</span></button>`
     : `<span class="bh-stn is-none">No stance</span>`}
   <button type="button" class="bh-feat is-more" data-drawer="stances"${known ? '' : ' aria-disabled="true"'}><b>Shift</b><span class="bh-fr is-dice">${known}</span></button>
 </section>`;
@@ -361,13 +365,13 @@ export const FOES = ({ foes, selected }) => {
 
 /* ── drawers ──────────────────────────────────────────────────────
    Two columns of three. A tile is an icon and a count; the word is its
-   title, because six words in 80px is six ellipses. */
+   tooltip, because six words in 80px is six ellipses. */
 const DRAWERS_ORDER = [['vault', 'Vault'], ['cards', 'Subclass and heritage'], ['bag', 'Bag'],
   ['experiences', 'Experiences'], ['rest', 'Rest'], ['sheet', 'Open the sheet']];
 
 export const DRAWERS = ({ open, counts = {} }) => `
 <nav class="bh-pl bh-drawers" aria-label="Drawers">${DRAWERS_ORDER.map(([k, label]) => `
-  <button type="button" class="bh-dw${open === k ? ' on' : ''}" data-drawer="${k}" title="${label}" aria-label="${label}${counts[k] != null ? `, ${counts[k]}` : ''}"${
+  <button type="button" class="bh-dw${open === k ? ' on' : ''}" data-drawer="${k}"${tip(label)} aria-label="${label}${counts[k] != null ? `, ${counts[k]}` : ''}"${
     k === 'sheet' ? '' : ` aria-expanded="${open === k}"`}>
     ${ICON[k]}${counts[k] != null ? `<b>${counts[k]}</b>` : ''}</button>`).join('')}
 </nav>`;
@@ -388,7 +392,7 @@ export const DRAWER = ({ title, note, body }) => `
    column of numbers. */
 export const DLIST = ({ rows, empty = 'Nothing here.' }) => rows.length ? `
 <ul class="bh-dlist">${rows.map(r => `
-  <li>${r.act ? `<button type="button" class="bh-drow" data-row="${esc(r.key)}"${r.title ? ` title="${esc(r.title)}"` : ''}>` : '<div class="bh-drow is-read">'}
+  <li>${r.act ? `<button type="button" class="bh-drow" data-row="${esc(r.key)}"${tip(r.title)}>` : '<div class="bh-drow is-read">'}
     <b>${esc(r.name)}</b>${r.meta ? `<span>${esc(r.meta)}</span>` : ''}${r.n != null ? `<em>${esc(r.n)}</em>` : ''}
   ${r.act ? '</button>' : '</div>'}</li>`).join('')}
 </ul>` : `<p class="bh-dnone">${esc(empty)}</p>`;
@@ -410,7 +414,7 @@ export const PEEK = ({ face, actions = [], rule = false }) => `
 <div class="bh-peek${rule ? ' is-rule' : ''}">
   <div class="bh-pface">${face}</div>
   ${actions.length ? `<div class="bh-pacts">${actions.map(a => `
-    <button type="button" class="bh-pa"${a.id ? ` data-pa="${esc(a.id)}"` : ''} data-tone="${a.tone ?? ''}" title="${esc(a.short || a.said || '')}"${a.short ? ' aria-disabled="true"' : ''}>${
+    <button type="button" class="bh-pa"${a.id ? ` data-pa="${esc(a.id)}"` : ''} data-tone="${a.tone ?? ''}"${tip(a.short || a.said)}${a.short ? ' aria-disabled="true"' : ''}>${
       a.cost ? `<span class="bh-pc">${a.cost}</span>` : ''}<b>${esc(a.label)}</b></button>`).join('')}</div>` : ''}
 </div>`;
 
@@ -432,7 +436,7 @@ export const RULE_PEEK = ({ name, from, text, actions = [] }) => PEEK({ actions,
    says how many more on its last chip — the features plate's answer — and
    never loses one silently under the panel's edge. */
 const MOVES = 4;
-const moveChip = f => `<button type="button" class="bh-move" data-feature="${esc(f.name)}"${f.fear ? ' data-tone="fear"' : ''} title="${esc(f.kind)} · ${esc(f.text)}">
+const moveChip = f => `<button type="button" class="bh-move" data-feature="${esc(f.name)}"${f.fear ? ' data-tone="fear"' : ''}${tip(`${f.kind} · ${f.text}`)}>
       <b>${esc(f.name)}</b>${f.fear ? `<span>${f.fear} Fear</span>` : ''}</button>`;
 export const ADVERSARY = (o) => `
 <section class="bh-pl bh-adv">
@@ -442,7 +446,7 @@ export const ADVERSARY = (o) => `
     <div class="bh-thr2">${THRESHOLDS(o.thresholds)}</div>
   </div>
   <div class="bh-moves">
-    <button type="button" class="bh-move is-attack" data-act="attack" title="${esc(o.attack.range)} · ${esc(o.attack.dmg)}"><b>${esc(o.attack.name)} <i>${sign(o.attack.mod)}</i></b><span>${esc(o.attack.dmg)}</span></button>
+    <button type="button" class="bh-move is-attack" data-act="attack"${tip(`${o.attack.range} · ${o.attack.dmg}`)}><b>${esc(o.attack.name)} <i>${sign(o.attack.mod)}</i></b><span>${esc(o.attack.dmg)}</span></button>
     ${o.features.length > MOVES
       ? o.features.slice(0, MOVES - 1).map(moveChip).join('') + `<button type="button" class="bh-move is-more" data-act="moves"><b>${o.features.length - MOVES + 1} more</b></button>`
       : o.features.map(moveChip).join('')}

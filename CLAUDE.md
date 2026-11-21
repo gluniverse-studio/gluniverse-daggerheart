@@ -6550,6 +6550,31 @@ payer, the drop and the active stance are all `stances.ts`. Stances are
 would bury the class's own rules. Focus is a value and the active stance is a
 shape.
 
+**Escape that puts something away stops there.** Foundry's dismiss binding
+answers Escape by releasing the controlled token, and a GM on a PC's rail is
+there *because* of that token — so closing a peek used to swap the whole rail
+for the adversary rail as well. `onKey` listens in the bubble on `document`,
+which is after whatever is focused and before Foundry's `KeyboardManager` on
+`window`, and when `escapeCloses` says the key closed a peek or a drawer it is
+eaten. With nothing of the rail's open the key goes on untouched, and so does
+one typed into somebody else's field. The framing gesture eats its own in
+capture.
+
+**A foe card or a party seat lights its token**, with the combat tracker's own
+two calls, `_onHoverIn(…, {hoverOutOthers:true})` and `_onHoverOut`, and only
+for a token the user can see and hover and is not already holding. The lit
+token is put out when the pointer leaves the rail and before every redraw,
+since a replaced card never hears the pointer go. **A pick the screen is not
+showing pans to it**: off `#ui-middle`'s box or under the rail's top, which
+`offScreen` decides, because the card was the only way to find that creature.
+
+**The rail's hints are Foundry's tooltips.** `tip()` in `design/hud.js` writes
+`data-tooltip-text`, which is plain text on v13 and v14 alike; `data-tooltip`
+would render a typed name as markup. They open upward, off the host's
+`data-tooltip-direction`, and one standing on a press is put away before a
+redraw replaces it. The study page has no Foundry and lends the browser's
+title on hover instead. The ratchet asserts no `title=` comes back.
+
 `tools/test-bottom-hud.mjs` is the ratchet. It runs in `typecheck` and is
 negative-controlled. It asserts that marks are values and maxima are shape,
 that the foe order is shape, that the framing is a value, that a player rail

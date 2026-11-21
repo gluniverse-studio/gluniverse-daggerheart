@@ -19,6 +19,8 @@
 
 import assert from "node:assert/strict";
 import { liveOf, shapeOf, tookHit, canAct, pressBox, pressMark, sameFrame } from "../src/module/bottom-hud-shape.ts";
+import { escapeCloses, offScreen } from "../src/module/bottom-hud-shape.ts";
+import { readFileSync } from "node:fs";
 import { planPlace, canPayRecall } from "../src/module/loadout.ts";
 
 let n = 0;
@@ -267,6 +269,47 @@ ok("a card dropped back where it was writes nothing", () => {
 
 ok("an unknown card is not a plan", () => {
   assert.equal(planPlace(deck(["a"], []), "zz", "vault"), null);
+});
+
+console.log("Escape, the board, and the tooltips");
+
+ok("Escape is eaten only when it closes something of the rail's", () => {
+  const none = { peek: false, drawer: false };
+  assert.equal(escapeCloses("Escape", { peek: true, drawer: true }, false), "peek", "a peek goes first");
+  assert.equal(escapeCloses("Escape", { peek: false, drawer: true }, false), "drawer");
+  /* Nothing open: the key is Foundry's, and releasing the token is its job. */
+  assert.equal(escapeCloses("Escape", none, false), null);
+  assert.equal(escapeCloses("Enter", { peek: true, drawer: true }, false), null);
+  /* Typed into somebody else's field, Escape belongs to the field. */
+  assert.equal(escapeCloses("Escape", { peek: true, drawer: true }, true), null);
+});
+
+ok("a pick pans only to a token the GM cannot see", () => {
+  const view = { left: 100, top: 40, right: 1500, bottom: 900 };
+  assert.equal(offScreen({ x: 800, y: 400 }, view, 780), false);
+  for (const at of [
+    { x: 50, y: 400 },
+    { x: 1600, y: 400 },
+    { x: 800, y: 10 },
+    { x: 800, y: 950 },
+  ]) {
+    assert.equal(offScreen(at, view, 780), true, JSON.stringify(at));
+  }
+  /* Under the rail is as hidden as past the edge. */
+  assert.equal(offScreen({ x: 800, y: 820 }, view, 780), true);
+  assert.equal(offScreen({ x: 800, y: 820 }, view, null), false, "with no rail, the view's own bottom");
+  /* A point nobody could compute is not a reason to move the board. */
+  assert.equal(offScreen(null, view, 780), false);
+  assert.equal(offScreen({ x: NaN, y: 1 }, view, 780), false);
+});
+
+ok("the rail's hints are Foundry's plain-text tooltips, never a native title", () => {
+  const src = readFileSync(new URL("../design/hud.js", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /\stitle="/, "a native title opens beside Foundry's tooltip");
+  assert.doesNotMatch(src, /data-tooltip="|data-tooltip-html=/, "data-tooltip renders markup, and names are typed by players");
+  assert.match(src, /data-tooltip-text="\$\{esc\(/, "the hint goes through esc()");
+  const host = readFileSync(new URL("../src/module/bottom-hud.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(host, /\.title = |removeAttribute\("title"\)/, "the live Hope reading writes the tooltip, not a title");
 });
 
 console.log(`\nbottom HUD: ${n} checks passed`);

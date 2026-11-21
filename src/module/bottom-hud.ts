@@ -78,6 +78,7 @@ import {
 } from "./sheets/cards.ts";
 import { postCard } from "./sheets/post-card.ts";
 import { canAct, liveOf, pressBox, pressMark, sameFrame, shapeOf, tookHit, type Live } from "./bottom-hud-shape.ts";
+import { escapeCloses, offScreen } from "./bottom-hud-shape.ts";
 import { rich } from "./ui/card.js";
 import { FACE } from "./ui/face.js";
 import { fit, nameFit } from "./ui/face-fx.js";
@@ -114,6 +115,8 @@ let peekTimer: ReturnType<typeof setTimeout> | null = null;
 let gmPick: string | null = null;
 /** Puts the portrait-framing gesture down, while one is up. */
 let framing: (() => void) | null = null;
+/** The token a foe card or party seat has lit on the canvas, while the pointer rests on it. */
+let lit: any = null;
 
 interface Feat {
   name: string;
@@ -164,6 +167,8 @@ export function registerBottomHud(): void {
   host?.remove();
   host = document.createElement("div");
   host.className = "dh-bhud-host";
+  /* Foundry's tooltips open above the press, clear of the rail. */
+  host.dataset.tooltipDirection = "UP";
   wall.append(host);
 
   host.addEventListener("click", onClick);
@@ -175,6 +180,8 @@ export function registerBottomHud(): void {
   host.addEventListener("dragover", onDragOver);
   host.addEventListener("drop", onDrop);
   document.addEventListener("pointerdown", onOutside, true);
+  /* Bubble on `document`, which is after anything focused has had the key and
+     before Foundry's KeyboardManager, which listens on `window`. */
   document.addEventListener("keydown", onKey);
 
   /* The right gutter is the sidebar's width, which the player can collapse
@@ -608,6 +615,7 @@ function refresh(force: boolean): void {
   document.body.classList.toggle("dh-bhud-on", !!who);
   if (!who) {
     framing?.();
+    lightToken(null);
     host.replaceChildren();
     drawn = model = null;
     lift();
@@ -656,6 +664,11 @@ function paint(arrive: boolean): void {
   if (!host || !model) return;
   /* The plinth is about to be replaced; the gesture on it commits and ends. */
   framing?.();
+  /* The card or seat that lit a token, and the press a tooltip stands on, are
+     both about to be replaced; neither would hear the pointer leave. */
+  lightToken(null);
+  const tip = (game as any).tooltip;
+  if (tip?.element && host.contains(tip.element)) tip.deactivate();
   const o = model.opts;
   host.innerHTML = HUD({
     ...o,
@@ -706,10 +719,10 @@ function drive(root: HTMLElement, prev: Live, next: Live): void {
       const short = (next.hope ?? 0) < Number(f.dataset.hope);
       if (short) {
         f.setAttribute("aria-disabled", "true");
-        f.title = `Needs ${f.dataset.hope} Hope`;
+        f.dataset.tooltipText = `Needs ${f.dataset.hope} Hope`;
       } else {
         f.removeAttribute("aria-disabled");
-        f.removeAttribute("title");
+        f.removeAttribute("data-tooltip-text");
       }
     }
   }
@@ -1037,8 +1050,44 @@ function peekTarget(t: HTMLElement): { kind: PeekKind; id: string } | null {
   return id ? { kind: "card", id } : null;
 }
 
+/* A foe card and a party seat stand for a token, so resting on one lights it
+   on the board — the combat tracker's rows do exactly this, with the same two
+   calls. A token the user cannot see or hover, or already holds, stays as it is. */
+function tokenOf(el: HTMLElement): any {
+  const c: any = canvas;
+  if (!c?.ready) return null;
+  const foe = el.closest(".bh-foes .bh-held")?.querySelector<HTMLElement>("[data-card]")?.dataset.card;
+  if (foe) return c.tokens?.get?.(foe) ?? null;
+  const seat = el.closest<HTMLElement>("[data-seat]")?.dataset.seat;
+  return seat ? ((game as any).actors?.get(seat)?.getActiveTokens?.()?.[0] ?? null) : null;
+}
+
+function lightToken(el: HTMLElement | null, e?: PointerEvent): void {
+  let tok = el ? tokenOf(el) : null;
+  if (tok && !(tok.visible && tok._canHover?.(game.user, e) !== false)) tok = null;
+  if (tok === lit) return;
+  const was = lit;
+  lit = tok;
+  const ev = e ?? { buttons: 0 };
+  if (was && !was.destroyed) was._onHoverOut?.(ev);
+  if (tok && !tok.controlled) tok._onHoverIn?.(ev, { hoverOutOthers: true });
+}
+
+/* A pick the screen is not showing is brought into view: the card was the
+   only way to find that creature, and choosing it should not mean hunting. */
+function bringIntoView(tok: any, root: HTMLElement): void {
+  const c: any = canvas;
+  const at0 = tok?.center;
+  if (!c?.ready || !at0) return;
+  const at = c.clientCoordinatesFromCanvas?.(at0) ?? c.stage?.worldTransform?.apply?.({ x: at0.x, y: at0.y });
+  const mid = document.getElementById("ui-middle")?.getBoundingClientRect();
+  const view = mid?.width ? mid : { left: 0, top: 0, right: innerWidth, bottom: innerHeight };
+  if (offScreen(at, view, root.getBoundingClientRect().top)) void c.animatePan({ x: at0.x, y: at0.y });
+}
+
 function onOver(e: PointerEvent): void {
   const t = e.target as HTMLElement;
+  lightToken(t, e);
   if (t.closest(".bh-peek")) {
     if (peekTimer) clearTimeout(peekTimer);
     peekTimer = null;
@@ -1056,6 +1105,7 @@ function onOver(e: PointerEvent): void {
 }
 
 function onOut(e: PointerEvent): void {
+  if (!host?.contains(e.relatedTarget as Node | null)) lightToken(null, e);
   if (!peek || peek.pinned) {
     if (peekTimer && !peek) clearTimeout(peekTimer);
     return;
@@ -1083,10 +1133,20 @@ function onPressKey(e: KeyboardEvent): void {
   t.click();
 }
 
+/* Escape puts away what is open and stops there: left to reach Foundry it
+   would release the controlled token too, and a GM playing a PC's token would
+   watch the rail flip to the adversary rail. The framing gesture eats its own
+   Escape in capture, before this ever runs. */
 function onKey(e: KeyboardEvent): void {
-  if (e.key !== "Escape") return;
-  if (peek) closePeek();
-  else if (drawer) closeDrawer();
+  if (e.isComposing) return;
+  const t = e.target as HTMLElement | null;
+  const field = !!t?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .editor');
+  const what = escapeCloses(e.key, { peek: !!peek, drawer: !!drawer }, field && !host?.contains(t));
+  if (!what) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  if (what === "peek") closePeek();
+  else closeDrawer();
 }
 
 /* ── presses ──────────────────────────────────────────────────────── */
@@ -1335,7 +1395,10 @@ async function onGmClick(t: HTMLElement, m: Model, root: HTMLElement, may: boole
   if (foe) {
     gmPick = foe.dataset.card!;
     const tok = m.foes.find((x) => x.id === gmPick);
-    if (tok?.control) tok.control({ releaseOthers: true });
+    if (tok?.control) {
+      tok.control({ releaseOthers: true });
+      bringIntoView(tok, root);
+    }
     schedule();
     return;
   }

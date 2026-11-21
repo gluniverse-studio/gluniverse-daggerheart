@@ -287,11 +287,11 @@ on('hope', e => { S.hope = +e.target.value
   for (const f of hud().querySelectorAll('.bh-feat[data-hope]')) {
     const short = S.hope < +f.dataset.hope
     short ? f.setAttribute('aria-disabled', 'true') : f.removeAttribute('aria-disabled')
-    short ? f.title = `Needs ${f.dataset.hope} Hope` : f.removeAttribute('title') }
+    short ? f.dataset.tooltipText = `Needs ${f.dataset.hope} Hope` : f.removeAttribute('data-tooltip-text') }
   const use = hud().querySelector('.bh-peek .bh-pa[data-tone="hope"]'), cost = +(hud().querySelector('.bh-feat.is-hope')?.dataset.hope ?? 0)
   if (use) { const short = S.hope < cost
     short ? use.setAttribute('aria-disabled', 'true') : use.removeAttribute('aria-disabled')
-    use.title = short ? `Needs ${cost} Hope` : `Spend ${cost} Hope` }
+    use.dataset.tooltipText = short ? `Needs ${cost} Hope` : `Spend ${cost} Hope` }
   const gseat = G.querySelector('[data-seat="bex"]'); if (gseat) setSeat(gseat, { hope: [S.hope, 6] })
   hud().querySelector('[data-plinth]').style.setProperty('--bh-hope', (S.hope / 6).toFixed(3)) })
 for (const k of ['hp', 'st', 'ar']) on(k, e => { const was = S[k]; S[k] = +e.target.value
@@ -371,6 +371,15 @@ if (q.has('who')) who = +q.get('who')
 if (q.has('still')) document.documentElement.classList.add('still')
 if (q.has('full')) document.querySelectorAll('.wrap').forEach(w => w.style.maxWidth = '1560px')
 draw(!q.has('still'))
+
+/* The rail's hints are Foundry's tooltips, and this page has no Foundry: the
+   browser's own title stands in, copied over at the moment it is wanted. */
+let lent = null
+document.addEventListener('pointerover', e => {
+  const t = e.target.closest?.('[data-tooltip-text]')
+  if (lent && lent !== t) lent.removeAttribute('title')
+  if (t) t.title = t.dataset.tooltipText
+  lent = t })
 
 /* ?bench — what the rail costs, measured on the paths a host takes: a full
    render (only on mount or an actor swap), and the setters a live change

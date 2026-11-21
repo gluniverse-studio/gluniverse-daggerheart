@@ -154,6 +154,47 @@ export function pressMark(i: number, marked: number, max: number): number {
   return Math.max(0, Math.min(max, i + 1 === marked ? i : i + 1));
 }
 
+/**
+ * What an Escape puts away, or null when it is not the rail's to take.
+ *
+ * Foundry's dismiss binding answers Escape by releasing the controlled token,
+ * and a GM playing a PC's token is on that PC's rail *because* of the token —
+ * so a key that closed a peek and then reached Foundry would also swap the
+ * rail out from under the pointer. Non-null means the host eats the key. Null
+ * means it goes on untouched: nothing of the rail's was open, or it was typed
+ * into somebody else's field, where Escape belongs to the field.
+ */
+export function escapeCloses(
+  key: string,
+  open: { peek: boolean; drawer: boolean },
+  foreignField: boolean,
+): "peek" | "drawer" | null {
+  if (key !== "Escape" || foreignField) return null;
+  if (open.peek) return "peek";
+  if (open.drawer) return "drawer";
+  return null;
+}
+
+export interface ViewBox {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/**
+ * Is a token's centre, in client pixels, somewhere the GM cannot see it? The
+ * view is `#ui-middle`'s box — the board between the side columns — and the
+ * rail's own top stands in for its bottom, because a token under the rail is
+ * as hidden as one past the edge. A point nobody could compute is not off
+ * screen: panning on a guess moves the board for nothing.
+ */
+export function offScreen(at: { x: number; y: number } | null | undefined, view: ViewBox, railTop?: number | null): boolean {
+  if (!at || !Number.isFinite(at.x) || !Number.isFinite(at.y)) return false;
+  const bottom = railTop != null && Number.isFinite(railTop) ? Math.min(railTop, view.bottom) : view.bottom;
+  return at.x < view.left || at.x > view.right || at.y < view.top || at.y > bottom;
+}
+
 /** Two frames are the same crop. */
 export const sameFrame = (a?: { x: number; y: number; scale: number }, b?: { x: number; y: number; scale: number }): boolean =>
   (a?.x ?? 0) === (b?.x ?? 0) && (a?.y ?? 0) === (b?.y ?? 0) && (a?.scale ?? 1) === (b?.scale ?? 1);
