@@ -77,15 +77,43 @@ import {
   type Sigils,
 } from "./sheets/cards.ts";
 import { postCard } from "./sheets/post-card.ts";
-import { canAct, liveOf, pressBox, pressMark, sameFrame, shapeOf, tookHit, type Live } from "./bottom-hud-shape.ts";
-import { escapeCloses, offScreen } from "./bottom-hud-shape.ts";
+import {
+  MACRO_PAGES,
+  canAct,
+  escapeCloses,
+  liveOf,
+  macroRows,
+  offScreen,
+  openPage,
+  pressBox,
+  pressMark,
+  sameFrame,
+  shapeOf,
+  stepPage,
+  tookHit,
+  type Live,
+} from "./bottom-hud-shape.ts";
 import { rich } from "./ui/card.js";
 import { FACE } from "./ui/face.js";
 import { fit, nameFit } from "./ui/face-fx.js";
 import { setPool } from "./ui/gem.js";
 import { COMPACT } from "./ui/compact.js";
 import { setSeat } from "./ui/seat.js";
-import { DLIST, DRAWER, HUD, PEEK, REST, RULE_PEEK, flinch, framePlinth, placeDrawer, setFrame, setStrip } from "./ui/hud.js";
+import {
+  DLIST,
+  DRAWER,
+  HUD,
+  MACROS,
+  PAGER,
+  PEEK,
+  REST,
+  RULE_PEEK,
+  flinch,
+  framePlinth,
+  placeDrawer,
+  setFrame,
+  setStrip,
+} from "./ui/hud.js";
 import { setMarks } from "./ui/mark.js";
 
 const TRACK = { hp: "hitPoints", st: "stress", ar: "armorSlots" } as const;
@@ -108,6 +136,10 @@ let drawn: { key: string; shape: string; live: Live; opts: any } | null = null;
 let model: Model | null = null;
 
 let drawer = "";
+/** The macros drawer's page: this client's, this session's, stored nowhere. 0 until it first opens. */
+let macroPage = 0;
+/** When the wheel last stepped it, so one flick of a trackpad is one page. */
+let macroWheel = 0;
 type PeekKind = "card" | "feat" | "stance";
 let peek: { kind: PeekKind; id: string; pinned: boolean } | null = null;
 let peekTimer: ReturnType<typeof setTimeout> | null = null;
@@ -179,6 +211,7 @@ export function registerBottomHud(): void {
   host.addEventListener("dragstart", onDragStart);
   host.addEventListener("dragover", onDragOver);
   host.addEventListener("drop", onDrop);
+  host.addEventListener("wheel", onWheel, { passive: false });
   document.addEventListener("pointerdown", onOutside, true);
   /* Bubble on `document`, which is after anything focused has had the key and
      before Foundry's KeyboardManager, which listens on `window`. */
@@ -197,6 +230,14 @@ export function registerBottomHud(): void {
 
   const any = () => schedule();
   Hooks.on("daggerheart.bottomHudChanged", () => schedule(true));
+  /* The macros drawer is read when it opens and again when the hotbar moves
+     under it. Assigning a slot writes the User with `noHook`, so
+     `updateUser` never hears it — but Foundry re-renders its (hidden) hotbar
+     for exactly that write, and `renderHotbar` does. */
+  const macros = () => {
+    if (drawer === "macros") showDrawer("macros", false);
+  };
+  for (const h of ["createMacro", "updateMacro", "deleteMacro", "renderHotbar"]) Hooks.on(h, macros);
   for (const h of [
     "updateActor",
     "createItem",
@@ -783,7 +824,59 @@ function lift(): void {
 
 /* ── drawers ──────────────────────────────────────────────────────── */
 
+/* The hotbar the rail hides, a page at a time, on either rail: a macro is the
+   user's, not the character's, so it answers to whoever is at the keyboard
+   whatever the rail is of. */
+function macrosDrawer(): string {
+  const user = game.user;
+  const page = (p: number) => macroRows(user?.getHotbarMacros?.(p));
+  if (!macroPage) {
+    const filled = Array.from({ length: MACRO_PAGES }, (_, i) => page(i + 1).length > 0);
+    macroPage = openPage(filled, Number((ui as any).hotbar?.page ?? 1));
+  }
+  const rows = page(macroPage);
+  const any = rows.length > 0 || Object.values(user?.hotbar ?? {}).some((id) => game.macros?.get(id as string));
+  return DRAWER({
+    title: game.i18n.localize("DAGGERHEART.Macros.Heading"),
+    note: esc(game.i18n.localize("DAGGERHEART.Macros.Note")),
+    head: PAGER({
+      page: macroPage,
+      pages: MACRO_PAGES,
+      prev: game.i18n.localize("DAGGERHEART.Macros.Prev"),
+      next: game.i18n.localize("DAGGERHEART.Macros.Next"),
+    }),
+    body: MACROS({
+      rows,
+      empty: any
+        ? game.i18n.format("DAGGERHEART.Macros.EmptyPage", { page: macroPage })
+        : game.i18n.localize("DAGGERHEART.Macros.Empty"),
+    }),
+  });
+}
+
+function turnMacroPage(d: number): void {
+  const next = stepPage(macroPage || 1, d);
+  if (next === macroPage) return deny(rail()?.querySelector(`.bh-drawer .bh-pg[data-page="${Math.sign(d)}"]`));
+  macroPage = next;
+  showDrawer("macros", false);
+}
+
+/* The wheel over the drawer steps a page. One step per gesture: a trackpad
+   sends a stream of small deltas, and four pages for one flick is a list
+   nobody can aim at. */
+function onWheel(e: WheelEvent): void {
+  if (drawer !== "macros" || !(e.target as HTMLElement).closest?.(".bh-drawer")) return;
+  e.preventDefault();
+  if (!e.deltaY || e.timeStamp - macroWheel < 180) return;
+  macroWheel = e.timeStamp;
+  const next = stepPage(macroPage || 1, e.deltaY);
+  if (next === macroPage) return;
+  macroPage = next;
+  showDrawer("macros", false);
+}
+
 function drawerBody(k: string): string {
+  if (k === "macros") return macrosDrawer();
   const m = model;
   if (!m || m.role !== "player") return "";
   const a = m.actor;
@@ -1216,6 +1309,20 @@ async function onClick(e: MouseEvent): Promise<void> {
     if (drawer === k) closeDrawer();
     else showDrawer(k);
     return;
+  }
+
+  /* The macros drawer answers on both rails and to an observer too: what it
+     runs is the user's, and the rail being someone else's changes nothing. */
+  const pg = t.closest<HTMLElement>(".bh-drawer .bh-pg[data-page]");
+  if (pg) return turnMacroPage(Number(pg.dataset.page));
+  const mac = t.closest<HTMLElement>(".bh-drawer button.bh-mac[data-row]");
+  if (mac) {
+    const macro = game.macros?.get(mac.dataset.row!.slice(6));
+    if (!macro) {
+      ui.notifications?.warn(game.i18n.localize("DAGGERHEART.Macros.Gone"));
+      return void showDrawer("macros", false);
+    }
+    return void macro.execute();
   }
 
   if (m.role === "gm") return onGmClick(t, m, root, may);

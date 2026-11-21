@@ -219,3 +219,54 @@ export function pressBox(kind: "hp" | "st" | "ar", i: number, marked: number, ma
         : i + 1;
   return Math.max(0, Math.min(max, next));
 }
+
+/* ── the macros drawer ─────────────────────────────────────────────── */
+
+/** Foundry's hotbar: five pages of ten. */
+export const MACRO_PAGES = 5;
+
+/**
+ * The page a step lands on. Clamped rather than wrapped, which is where this
+ * parts from Foundry's own pager: the wheel steps it too, and a wheel that
+ * runs off page 5 onto page 1 is a list that jumps back under the pointer.
+ * Anything that is not a page — a stale number, NaN — comes back as one.
+ */
+export function stepPage(page: number, d: number, pages = MACRO_PAGES): number {
+  const p = Number.isFinite(page) ? Math.round(page) : 1;
+  return Math.max(1, Math.min(pages, p + Math.sign(d || 0)));
+}
+
+/**
+ * The page the drawer opens on: the one the hotbar was last on when it holds
+ * anything, else the first page that does, else the hotbar's — so an empty
+ * hotbar says so on the page it was already on.
+ */
+export function openPage(filled: boolean[], preferred: number, pages = MACRO_PAGES): number {
+  const p = stepPage(preferred, 0, pages);
+  if (filled[p - 1]) return p;
+  const first = filled.findIndex(Boolean);
+  return first >= 0 && first < pages ? first + 1 : p;
+}
+
+export interface MacroRow {
+  id: string;
+  slot: number;
+  name: string;
+  img: string | null;
+}
+
+/**
+ * One page of `user.getHotbarMacros(page)` — ten `{slot, macro}` — as the
+ * drawer's rows. An empty slot is left out, and so is one whose macro has
+ * gone: the hotbar keeps the id after the Macro is deleted, and `get`
+ * answers it with null.
+ */
+export function macroRows(slots: any[] | null | undefined): MacroRow[] {
+  const rows: MacroRow[] = [];
+  for (const s of slots ?? []) {
+    const m = s?.macro;
+    if (!m?.id) continue;
+    rows.push({ id: String(m.id), slot: Number(s.slot), name: String(m.name ?? ""), img: m.img ? String(m.img) : null });
+  }
+  return rows;
+}

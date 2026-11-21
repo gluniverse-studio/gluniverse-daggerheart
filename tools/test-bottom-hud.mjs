@@ -18,8 +18,21 @@
  */
 
 import assert from "node:assert/strict";
-import { liveOf, shapeOf, tookHit, canAct, pressBox, pressMark, sameFrame } from "../src/module/bottom-hud-shape.ts";
-import { escapeCloses, offScreen } from "../src/module/bottom-hud-shape.ts";
+import {
+  liveOf,
+  shapeOf,
+  tookHit,
+  canAct,
+  pressBox,
+  pressMark,
+  sameFrame,
+  escapeCloses,
+  offScreen,
+  stepPage,
+  openPage,
+  macroRows,
+  MACRO_PAGES,
+} from "../src/module/bottom-hud-shape.ts";
 import { readFileSync } from "node:fs";
 import { planPlace, canPayRecall } from "../src/module/loadout.ts";
 
@@ -310,6 +323,49 @@ ok("the rail's hints are Foundry's plain-text tooltips, never a native title", (
   assert.match(src, /data-tooltip-text="\$\{esc\(/, "the hint goes through esc()");
   const host = readFileSync(new URL("../src/module/bottom-hud.ts", import.meta.url), "utf8");
   assert.doesNotMatch(host, /\.title = |removeAttribute\("title"\)/, "the live Hope reading writes the tooltip, not a title");
+});
+
+console.log("the macros drawer");
+
+ok("the pager clamps at both ends rather than wrapping", () => {
+  assert.equal(stepPage(1, -1), 1);
+  assert.equal(stepPage(MACRO_PAGES, 1), MACRO_PAGES);
+  assert.equal(stepPage(2, 1), 3);
+  assert.equal(stepPage(3, -1), 2);
+});
+
+ok("a step is one page whatever the wheel's delta", () => {
+  assert.equal(stepPage(2, 120), 3);
+  assert.equal(stepPage(2, -0.4), 1);
+  assert.equal(stepPage(2, 0), 2);
+});
+
+ok("anything that is not a page comes back as one", () => {
+  assert.equal(stepPage(NaN, 0), 1);
+  assert.equal(stepPage(9, 0), MACRO_PAGES);
+  assert.equal(stepPage(0, 0), 1);
+});
+
+ok("the drawer opens on the hotbar's page, else the first page holding a macro", () => {
+  const f = [false, false, true, false, true];
+  assert.equal(openPage(f, 5), 5);
+  assert.equal(openPage(f, 1), 3);
+  assert.equal(openPage([false, false, false, false, false], 2), 2);
+});
+
+ok("a page's rows are its filled slots, by absolute slot number", () => {
+  const slots = Array.from({ length: 10 }, (_, i) => ({ slot: 11 + i, macro: null }));
+  slots[0].macro = { id: "m1", name: "Rally", img: "icons/rally.svg" };
+  slots[9].macro = { id: "m2", name: "Dash" };
+  assert.deepEqual(macroRows(slots), [
+    { id: "m1", slot: 11, name: "Rally", img: "icons/rally.svg" },
+    { id: "m2", slot: 20, name: "Dash", img: null },
+  ]);
+});
+
+ok("an empty page, and no page at all, are no rows", () => {
+  assert.deepEqual(macroRows(Array.from({ length: 10 }, (_, i) => ({ slot: i + 1, macro: null }))), []);
+  assert.deepEqual(macroRows(undefined), []);
 });
 
 console.log(`\nbottom HUD: ${n} checks passed`);

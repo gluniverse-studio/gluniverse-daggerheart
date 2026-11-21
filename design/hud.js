@@ -12,13 +12,13 @@
 //             its price or its readout printed on the row
 //   hand      the loadout as compact cards held up out of the rail; it takes
 //             whatever width the rest leaves and overlaps to fit
-//   drawers   six tiles right beside the hand — vault, cards, bag,
-//             experiences, rest, sheet — so the hand and what it is drawn
-//             from read as one group, with the rail's slack after them
+//   drawers   seven tiles right beside the hand — vault, cards, bag,
+//             experiences, rest, macros, sheet — so the hand and what it is
+//             drawn from read as one group, with the rail's slack after them
 //
 // The GM's rail swaps vitals + actions + features + hand for the adversary
 // panel and a hand of the adversaries in play — the same compact card, so
-// the two rails hold one kind of object. On both rails the party is the
+// the two rails hold one kind of object — and keeps one tile, the macros. On both rails the party is the
 // stack of ringed seats above the plinth: a column of the other characters
 // for a player, all of them in a 2×2 block for the GM.
 //
@@ -50,6 +50,9 @@ export const ICON = {
   hit: I('<path d="M3 13 12.5 3.5"/><path d="M10 2.5l3.5 3.5"/><path d="M2 10.5l3.5 3.5"/>'),
   swap: I('<path d="M3 5.5h9.5l-2.5-2.5"/><path d="M13 10.5H3.5L6 13"/>'),
   fold: I('<path d="M4 6.5 8 10.5l4-4"/>'),
+  macros: I('<path d="M2.5 3.5h11v9h-11z"/><path d="M5 6.5 7 8.2 5 10"/><path d="M8.5 10h3"/>'),
+  prev: I('<path d="M10 3.5 5.5 8l4.5 4.5"/>'),
+  next: I('<path d="M6 3.5 10.5 8 6 12.5"/>'),
   frame: I('<path d="M2.5 5.5v-3h3"/><path d="M10.5 2.5h3v3"/><path d="M13.5 10.5v3h-3"/><path d="M5.5 13.5h-3v-3"/><path d="M8 6v4M6 8h4"/>'),
 };
 
@@ -362,13 +365,17 @@ export const FOES = ({ foes, selected }) => {
 };
 
 /* ── drawers ──────────────────────────────────────────────────────
-   Two columns of three. A tile is an icon and a count; the word is its
-   tooltip, because six words in 80px is six ellipses. */
+   Three rows, filled down a column at a time: what you hold (vault, cards,
+   bag), what you are (Experiences, rest, macros), and the sheet alone at the
+   end, because it is a door rather than a drawer. A tile is an icon and a
+   count; the word is its tooltip, because seven words in 100px is seven
+   ellipses. The GM's rail keeps only the macros, so `keys` picks the tiles. */
 const DRAWERS_ORDER = [['vault', 'Vault'], ['cards', 'Subclass and heritage'], ['bag', 'Bag'],
-  ['experiences', 'Experiences'], ['rest', 'Rest'], ['sheet', 'Open the sheet']];
+  ['experiences', 'Experiences'], ['rest', 'Rest'], ['macros', 'Macros'], ['sheet', 'Open the sheet']];
+export const GM_DRAWERS = ['macros'];
 
-export const DRAWERS = ({ open, counts = {} }) => `
-<nav class="bh-pl bh-drawers" aria-label="Drawers">${DRAWERS_ORDER.map(([k, label]) => `
+export const DRAWERS = ({ open, counts = {}, keys }) => `
+<nav class="bh-pl bh-drawers" aria-label="Drawers">${DRAWERS_ORDER.filter(([k]) => !keys || keys.includes(k)).map(([k, label]) => `
   <button type="button" class="bh-dw${open === k ? ' on' : ''}" data-drawer="${k}"${tip(label)} aria-label="${label}${counts[k] != null ? `, ${counts[k]}` : ''}"${
     k === 'sheet' ? '' : ` aria-expanded="${open === k}"`}>
     ${ICON[k]}${counts[k] != null ? `<b>${counts[k]}</b>` : ''}</button>`).join('')}
@@ -377,9 +384,9 @@ export const DRAWERS = ({ open, counts = {} }) => `
 /* A drawer is a plate that rises above the rail, its right edge on the
    right edge of the tiles that opened it (placeDrawer), so it never covers
    the figure. One at a time. */
-export const DRAWER = ({ title, note, body }) => `
+export const DRAWER = ({ title, note, body, head = '' }) => `
 <section class="bh-drawer" role="dialog" aria-label="${esc(title)}">
-  <header><b>${esc(title)}</b>${note ? `<span>${note}</span>` : ''}</header>
+  <header><b>${esc(title)}</b>${note ? `<span>${note}</span>` : ''}${head}</header>
   <div class="bh-dbody">${body}</div>
 </section>`;
 
@@ -401,6 +408,26 @@ export const REST = () => `
 <div class="bh-rest">
   <button type="button" class="bh-rb" data-rest="short"><b>Short rest</b><span>Two moves · a few minutes</span></button>
   <button type="button" class="bh-rb" data-rest="long"><b>Long rest</b><span>Two moves · several hours</span></button>
+</div>`;
+
+/* The macros drawer is the hotbar the rail hides, one page of ten at a
+   time. A row is the slot's number — the absolute one, 1 to 50, because the
+   page here is the drawer's own and a key label would name Foundry's — the
+   macro's icon and its name, and pressing it runs the macro. Empty slots are
+   left out rather than drawn dim: ten rows of which seven say nothing is a
+   page to read past. The pager sits in the drawer's head (PAGER), so the
+   list under it can come and go without moving it. */
+export const MACROS = ({ rows, empty = 'Nothing on this page.' }) => rows.length ? `
+<ul class="bh-dlist bh-macs">${rows.map(r => `
+  <li><button type="button" class="bh-drow bh-mac" data-row="macro:${esc(r.id)}"${tip(r.name)}>
+    <span class="bh-mk">${esc(r.slot)}</span>${r.img ? `<img class="bh-mi" src="${esc(r.img)}" alt="">` : '<span class="bh-mi"></span>'}<b>${esc(r.name)}</b></button></li>`).join('')}
+</ul>` : `<p class="bh-dnone bh-macs">${esc(empty)}</p>`;
+
+export const PAGER = ({ page, pages = 5, prev = 'Previous page', next = 'Next page' }) => `
+<div class="bh-pager">
+  <button type="button" class="bh-pg" data-page="-1" aria-label="${esc(prev)}"${page <= 1 ? ' aria-disabled="true"' : ''}>${ICON.prev}</button>
+  <b>${page}<i>/${pages}</i></b>
+  <button type="button" class="bh-pg" data-page="1" aria-label="${esc(next)}"${page >= pages ? ' aria-disabled="true"' : ''}>${ICON.next}</button>
 </div>`;
 
 /* ── the peek ─────────────────────────────────────────────────────
@@ -465,7 +492,7 @@ export const HUD = (o) => `
   <div class="bh-rail">
     ${PLINTH(o.plinth)}
     <div class="bh-body">${o.role === 'gm'
-      ? o.adversary ? ADVERSARY(o.adversary) + (o.foes?.foes?.length ? FOES(o.foes) : '') : EMPTY(o.empty)
+      ? (o.adversary ? ADVERSARY(o.adversary) + (o.foes?.foes?.length ? FOES(o.foes) : '') : EMPTY(o.empty)) + DRAWERS({ ...(o.drawers ?? {}), keys: GM_DRAWERS })
       : VITALS(o.vitals) + ACTIONS(o.actions) + FEATURES(o.features) + (o.stance ? STANCE(o.stance) : '') + HAND(o.hand) + DRAWERS(o.drawers ?? {})}</div>
   </div>
   ${o.drawer ?? ''}
