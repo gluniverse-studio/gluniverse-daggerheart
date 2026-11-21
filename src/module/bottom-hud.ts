@@ -248,8 +248,8 @@ function subject(): { role: "player"; actor: any } | { role: "gm" } | null {
   return mine.length ? { role: "player", actor: mine[0] } : null;
 }
 
-/** The characters at the table: every character a player owns. */
-const party = (): any[] =>
+/** The characters at the table: every character a player owns. Exported for `roll-call-host.ts`, whose "the party" is this one. */
+export const party = (): any[] =>
   [...((game as any).actors ?? [])].filter((a: any) => isChar(a) && a.hasPlayerOwner);
 
 /** The adversaries in play: every adversary token on the scene in view. */

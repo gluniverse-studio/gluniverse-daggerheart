@@ -45,6 +45,7 @@ import { openBrowser, registerBrowser } from "./apps/browse.ts";
 import { openLibrary, registerLibrary } from "./apps/library.ts";
 import { registerFearHud } from "./fear-hud.ts";
 import { redrawBottomHud, registerBottomHud, reportBottomHud } from "./bottom-hud.ts";
+import { endCall, registerRollCall, reportRollCall, sendCall } from "./roll-call-host.ts";
 import { registerSpotlight, registerSpotlightKeys } from "./spotlight.ts";
 import {
   applyTokenConditions,
@@ -226,6 +227,8 @@ Hooks.once("ready", () => {
      Foundry's chrome, and `#interface` exists only once the game view has
      been drawn. */
   registerBottomHud();
+  /* After the rail, because a call stands on it and watches it for redraws. */
+  registerRollCall();
 
   /** Public API for macros and modules: `game.daggerheart.rollTrait(actor, "agility")`. */
   (game as any).daggerheart = {
@@ -234,6 +237,9 @@ Hooks.once("ready", () => {
        peek, folded — because "it is not showing" has five causes and only
        one of them is a bug. `.redraw()` rebuilds it from scratch. */
     bottomHud: Object.assign(reportBottomHud, { redraw: redrawBottomHud }),
+    /* The GM's call for a roll: what is out and what came in. `.send("instinct")`
+       calls for it with the panel's current choices; `.end()` takes it back. */
+    rollCall: Object.assign(reportRollCall, { send: sendCall, end: endCall }),
     /* A console for the token chips. Both bugs in the first build were
        silent — a hook registered after it had fired, and a clip on a
        transformed box — so the component answers questions as well as

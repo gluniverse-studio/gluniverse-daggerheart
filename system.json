@@ -15,6 +15,7 @@
   "esmodules": [
     "module/daggerheart.js"
   ],
+  "socket": true,
   "styles": [
     "styles/fonts.css",
     "styles/tokens.css",
@@ -51,6 +52,7 @@
     "styles/spotlight.css",
     "styles/seat.css",
     "styles/hud.css",
+    "styles/call.css",
     "styles/daggerheart-components.css",
     "styles/actor-sheets.css"
   ],

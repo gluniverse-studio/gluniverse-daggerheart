@@ -54,6 +54,10 @@ export interface AskRollOptions {
   /** The meta line. Defaults to the trait's own — "instinct roll". */
   kind?: string;
   reaction?: boolean | "only";
+  /** Posted to the roller and the GMs only: a call the GM made private. */
+  whisper?: boolean;
+  /** The id of the GM's call this roll answers (`roll-call.ts`). */
+  call?: string;
 }
 
 const sumTerms = (terms: { v: number }[]): number => terms.reduce((n, t) => n + t.v, 0);
@@ -113,6 +117,8 @@ export async function askRoll(
     hopeDie: chosen.hope,
     fearDie: chosen.fear,
     dc: o.dc ?? null,
+    whisper: o.whisper,
+    call: o.call,
   });
 }
 

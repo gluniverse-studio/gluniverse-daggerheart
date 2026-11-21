@@ -60,6 +60,8 @@ const MODULES = [
   /* The bottom HUD: the ringed seat it stacks the party in, and the rail. */
   "seat.js",
   "hud.js",
+  /* Calling for a roll: the GM's panel and the bar a call puts on a player's rail. */
+  "call.js",
   "face-fx.js",
 ];
 

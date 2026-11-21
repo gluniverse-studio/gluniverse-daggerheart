@@ -6567,6 +6567,84 @@ sync and the creation window's refresh hooks among them. A full Stress track
 was not making anyone Vulnerable. The menu is an ApplicationV2 now, built at
 registration because `foundry.applications` does not exist at import time.
 
+## Calling for a roll
+
+"Everybody make an Instinct Roll" is said at every table several times a
+session, and was answered by four people each going to find the trait on four
+sheets. A **call** is the GM saying it once: a press at the foot of the GM
+rail's party stack opens a panel, and a row of it sends. `src/module/roll-call.ts`
+is every decision and has no Foundry in it; `roll-call-host.ts` is the socket,
+the clock and the DOM; `design/call.*` draws the door, the panel and the bar.
+
+**The panel is a sentence.** Posted how (Open, or GM only), against what
+Difficulty, and whether the players are told it; then a grid of every party
+character's seven numbers — the six traits and Spellcast — where a column head
+picks a character (none picked is everybody, "the party" being exactly the GM
+rail's seats, `party()` in `bottom-hud.ts`) and a row head sends. A cell is
+`rollBase`, the number that character's popover would open at, and the best in
+a row is underlined unless everybody is equal. While a call is out the panel
+says, per character, waiting, rolling, the total with Hope or Fear and the
+verdict against the Difficulty, or away (nobody connected to answer).
+
+**On a player's rail it is a bar**, above the vitals: the trait at display
+size, the Difficulty in the adversary panel's diamond when it was shown, a
+line saying only you and the GM will see the result when that is so, a Roll
+press that opens the ordinary roll popover through `askRoll` anchored to it,
+a dismiss, and a foot that drains by the time left. It is ink with the paper
+edge, because every hue on the rail is a signal that already means something
+and a call is none of them. Rolling answers the call; dismissing the popover
+does not. One bar per called character, so a companion is a second bar. With
+the HUD switched off the bar stands alone over the foot of the screen.
+
+**Five rules, each held by `tools/test-roll-call.mjs`** (`npm run
+roll-call:check`, in `typecheck`, negative-controlled):
+
+- **Only a GM's call is honoured, and only on the server's word.** The
+  transport is the system socket (`"socket": true` in `system.json`), and
+  Foundry's server calls the listener with the payload and the id of the user
+  whose socket sent it (`handleCustomSocket` emits `(data, this.user.id)`).
+  That id is checked against an active GM; the payload has no sender field and
+  none would be read.
+- **The key is one of seven**, at both ends — it becomes a press on somebody
+  else's screen and an argument to the roll engine.
+- **A hidden Difficulty never leaves the GM's screen.** It is not in the
+  payload, the player's card says there was no target number, and the panel
+  reads the total against the number as it stood when the call went out.
+- **A call goes only to the called characters' players**, by `recipients`,
+  so the server delivers each payload to that user's sockets alone; the
+  assigned player first, connected owners otherwise, never a GM. Each payload
+  names only that player's own characters.
+- **An answer is a chat message, not a socket reply.** The roll carries the
+  call's id in its flags (`call`, beside `weaponId`), and the GM's client
+  counts it only if it is a duality roll by a called character, made by a user
+  who owns that character, inside the call's life. The flag is a pointer and
+  not evidence; the total is read off the plate the engine wrote, and is held
+  back until the dice land (`waitFor3dDice`), as every result on the rail is.
+
+**Two message modes, not three.** A GM-only call threads `whisper` through
+`askRoll` → `rollTrait` → `rollDuality` to `postPlate`'s existing GM whisper,
+which the roller still sees as the author. **Blind is declined**: a duality
+roll is the player's to act on — a Hope result is a claim on a card they could
+not see — and the Fear lands on a pool that is public by design, so a blind
+roll would be one whose outcome the whole table reads off the Fear strip except
+the person who made it. The same is true, more mildly, of GM only: it hides the
+card and the total, not the Fear the GM gains.
+
+**A call is never stored.** It ends when answered, withdrawn, or after
+`CALL_LIFE` (three minutes), and a reload on either side forgets it. It stands
+on the rail without `bottom-hud.ts` knowing: the host watches the HUD's host
+element for the markup replacement a shape change makes and puts its objects
+back from state, so an arrival plays once and the drain restarts where the
+clock already is. `game.daggerheart.rollCall()` reports; `.send(key)` and
+`.end()` are the same presses.
+
+**Not done:** the socket only exists after a Foundry **server restart** on the
+version that adds it, which a world upgrade does not do by itself; nothing has
+been exercised across two live clients yet. No sound, no chat record of the
+call itself, no "declined" reply — a dismiss is local. Reaction Rolls are not
+callable, for the reason they get no card button: the roll belongs to the
+other side of the exchange.
+
 ## Not done yet
 
 - Compendium content — character creation is covered: classes, subclasses,
