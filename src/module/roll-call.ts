@@ -142,7 +142,9 @@ export function callRecipients(targets: string[], users: UserLike[]): { to: Map<
   const to = new Map<string, string[]>();
   const away: string[] = [];
   for (const id of list(targets)) {
-    const own = players.filter((u) => u.character === id);
+    /* Assignment wins only for a player who owns the character: Foundry lets an
+       observer be assigned one, and the owner must not lose the call to them. */
+    const own = players.filter((u) => u.character === id && u.owns?.(id));
     const hear = own.length ? own : players.filter((u) => u.owns?.(id));
     if (!hear.length) {
       away.push(id);
@@ -274,6 +276,8 @@ export type Outcome = "hope" | "fear" | "crit";
 export interface Answer {
   /** When the message was seen; the total arrives once the dice land. */
   seen: number;
+  /** The roll message that answered, so a reroll on it can be read again. */
+  msg?: string;
   total?: number;
   out?: Outcome;
 }
@@ -376,9 +380,6 @@ export function outModel(out: Out | null, members: Member[], now: number) {
   };
 }
 
-/** Every called character still owing an answer, so a call that is fully answered can close itself. */
-export const callDone = (out: Out | null): boolean =>
-  !!out && out.targets.every((id) => out.away.includes(id) || out.answered.get(id)?.total != null);
 
 /* ── the grid ─────────────────────────────────────────────────────── */
 

@@ -91,6 +91,8 @@ export function registerRollCall(): void {
   else console.error(`${SYSTEM_ID} | no socket — calls for a roll cannot arrive on this client.`);
 
   Hooks.on("createChatMessage", (m: any) => void onMessage(m));
+  /* A reroll rewrites the answering card in place; the panel reads it again. */
+  Hooks.on("updateChatMessage", (m: any) => onReroll(m));
   /* The grid's numbers are a character's live trait values. */
   Hooks.on("updateActor", () => panelOpen && schedule());
   Hooks.on("updateItem", () => panelOpen && schedule());
@@ -263,17 +265,32 @@ async function onMessage(message: any): Promise<void> {
   if (!answersCall(call, { call: f.call, kind: f.kind, actorId, owned, at: Date.now() })) return;
   if (call.answered.has(actorId)) return;
   const seen = Date.now();
-  call.answered.set(actorId, { seen });
+  call.answered.set(actorId, { seen, msg: message.id });
   attach();
 
   await new Promise((done) => setTimeout(done, 80));
   const dice = waitFor3dDice(message.id);
   if (dice) await dice;
   if (out !== call) return;
-  const total = Number(f.plate?.total ?? message.rolls?.[0]?.total);
-  const outcome = ["hope", "fear", "crit"].includes(f.plate?.out) ? f.plate.out : undefined;
-  call.answered.set(actorId, { seen, ...(Number.isFinite(total) ? { total } : {}), ...(outcome ? { out: outcome } : {}) });
+  call.answered.set(actorId, { seen, msg: message.id, ...readAnswer(message) });
   attach();
+}
+
+/** What an answering card says: its total and which die won. */
+function readAnswer(message: any): { total?: number; out?: "hope" | "fear" | "crit" } {
+  const plate = message?.flags?.[SYSTEM_ID]?.plate;
+  const total = Number(plate?.total ?? message?.rolls?.[0]?.total);
+  const outcome = ["hope", "fear", "crit"].includes(plate?.out) ? plate.out : undefined;
+  return { ...(Number.isFinite(total) ? { total } : {}), ...(outcome ? { out: outcome } : {}) };
+}
+
+function onReroll(message: any): void {
+  if (!game.user?.isGM || !out) return;
+  for (const [actorId, a] of out.answered) {
+    if (a.msg !== message?.id || a.total == null) continue;
+    out.answered.set(actorId, { ...a, ...readAnswer(message) });
+    attach();
+  }
 }
 
 /* ── the player ───────────────────────────────────────────────────── */
@@ -429,6 +446,8 @@ function onInput(e: Event): void {
    field is theirs. */
 function onKey(e: KeyboardEvent): void {
   if (e.key !== "Escape" || !panelOpen || !game.user?.isGM || e.isComposing) return;
+  /* Open but not drawn — the GM is on a PC's rail — is nothing to close. */
+  if (!document.querySelector("[data-call-panel]")) return;
   const t = e.target as HTMLElement | null;
   if (t?.closest?.("input, textarea, select, [contenteditable], .editor") && !t.closest(".bh-call-panel")) return;
   e.preventDefault();

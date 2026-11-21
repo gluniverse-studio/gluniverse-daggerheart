@@ -30,7 +30,6 @@ import {
   CALL_LIFE,
   answersCall,
   barModel,
-  callDone,
   callRecipients,
   callTargets,
   dcOf,
@@ -141,6 +140,14 @@ ok("the assigned player hears their character, and a co-owner does not", () => {
   assert.deepEqual([...to], [["pa", ["a1"]]]);
 });
 
+ok("an assigned observer does not take the call from the owner", () => {
+  const obs = [
+    { id: "po", active: true, isGM: false, character: "z1", owns: () => false },
+    { id: "pw", active: true, isGM: false, character: null, owns: (a) => a === "z1" },
+  ];
+  assert.deepEqual([...callRecipients(["z1"], obs).to], [["pw", ["z1"]]]);
+});
+
 ok("with no assigned player connected, the connected owners hear it", () => {
   const { to, away } = callRecipients(["c1"], users);
   assert.deepEqual([...to], [["pa", ["c1"]]]);
@@ -223,7 +230,6 @@ ok("the panel waits, holds the total while the dice roll, then reads it against 
     [["in", 15, "fear", "success"], ["in", 9, "hope", "failure"]],
   );
   assert.equal(m.left, CALL_LIFE - 1200);
-  assert.equal(callDone(o), true);
 });
 
 console.log("the player's rail");

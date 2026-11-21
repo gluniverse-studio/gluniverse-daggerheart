@@ -1248,7 +1248,9 @@ function onKey(e: KeyboardEvent): void {
   if (e.isComposing) return;
   const t = e.target as HTMLElement | null;
   const field = !!t?.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"]), .editor');
-  const what = escapeCloses(e.key, { peek: !!peek, drawer: !!drawer }, field && !host?.contains(t));
+  /* A folded rail draws neither (hud.css), so there is nothing on screen to close. */
+  const shown = !rail()?.hasAttribute("data-folded");
+  const what = escapeCloses(e.key, { peek: !!peek && shown, drawer: !!drawer && shown }, field && !host?.contains(t));
   if (!what) return;
   e.preventDefault();
   e.stopImmediatePropagation();
