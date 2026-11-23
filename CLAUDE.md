@@ -3,6 +3,10 @@
 An unofficial Foundry VTT game system for Daggerheart, built on the design
 system in `design/`.
 
+Shared agent skills (impeccable, grilling and the rest of the mattpocock set) come from the studio home
+repo `~/gluniverse-home` (gluniverse-studio/gluniverse-home), linked user-wide by its
+`scripts/link-skills.sh`.
+
 ## Layout
 
 - `system.json` — the Foundry manifest. `documentTypes` declares the four
